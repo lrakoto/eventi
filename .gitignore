@@ -33,6 +33,12 @@ yarn-error.*
 # local env files
 .env*.local
 
+# Supabase local temp files
+supabase/.temp/
+
+# Claude settings
+.claude/
+
 # typescript
 *.tsbuildinfo
 

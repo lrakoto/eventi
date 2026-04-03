@@ -1,98 +1,109 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import MapView, { Marker, Region } from 'react-native-maps';
+import * as Location from 'expo-location';
+import { supabase } from '@/lib/supabase';
 
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Link } from 'expo-router';
+const INITIAL_DELTA = { latitudeDelta: 0.05, longitudeDelta: 0.05 };
+const RADIUS_METERS = 50000; // 50km (temporary for testing)
 
-export default function HomeScreen() {
+type Event = {
+  id: string;
+  title: string;
+  venue_name: string | null;
+  starts_at: string;
+  price_min: number | null;
+  price_max: number | null;
+  currency: string;
+  lat: number;
+  lng: number;
+};
+
+export default function MapScreen() {
+  const mapRef = useRef<MapView>(null);
+  const [region, setRegion] = useState<Region | null>(null);
+  const [events, setEvents] = useState<Event[]>([]);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        setErrorMsg('Location permission denied. Enable it in Settings to see nearby events.');
+        return;
+      }
+      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      const { latitude, longitude } = loc.coords;
+      setRegion({ latitude, longitude, ...INITIAL_DELTA });
+      fetchEvents(latitude, longitude);
+    })();
+  }, []);
+
+  async function fetchEvents(lat: number, lng: number) {
+    const { data, error } = await supabase.rpc('nearby_events', {
+      lat,
+      lng,
+      radius_m: RADIUS_METERS,
+    });
+    if (error) {
+      console.error('fetchEvents error:', error.message);
+      return;
+    }
+    setEvents(data ?? []);
+  }
+
+  if (errorMsg) {
+    return (
+      <View style={styles.centered}>
+        <Text style={styles.errorText}>{errorMsg}</Text>
+      </View>
+    );
+  }
+
+  if (!region) {
+    return (
+      <View style={styles.centered}>
+        <ActivityIndicator size="large" />
+        <Text style={styles.loadingText}>Finding your location…</Text>
+      </View>
+    );
+  }
+
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
+    <MapView
+      ref={mapRef}
+      style={StyleSheet.absoluteFillObject}
+      initialRegion={region}
+      showsUserLocation
+      showsMyLocationButton
+    >
+      {events.map((event) => (
+        <Marker
+          key={event.id}
+          coordinate={{ latitude: event.lat, longitude: event.lng }}
+          title={event.title}
+          description={event.venue_name ?? undefined}
         />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <Link href="/modal">
-          <Link.Trigger>
-            <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-          </Link.Trigger>
-          <Link.Preview />
-          <Link.Menu>
-            <Link.MenuAction title="Action" icon="cube" onPress={() => alert('Action pressed')} />
-            <Link.MenuAction
-              title="Share"
-              icon="square.and.arrow.up"
-              onPress={() => alert('Share pressed')}
-            />
-            <Link.Menu title="More" icon="ellipsis">
-              <Link.MenuAction
-                title="Delete"
-                icon="trash"
-                destructive
-                onPress={() => alert('Delete pressed')}
-              />
-            </Link.Menu>
-          </Link.Menu>
-        </Link>
-
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+      ))}
+    </MapView>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
+  centered: {
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
-    gap: 8,
+    gap: 12,
+    padding: 24,
   },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
+  loadingText: {
+    fontSize: 14,
+    color: '#666',
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
+  errorText: {
+    fontSize: 14,
+    color: '#c00',
+    textAlign: 'center',
   },
 });
