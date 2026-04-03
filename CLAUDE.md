@@ -49,6 +49,16 @@ An events aggregator app for iOS (targeting Apple App Store). Pulls events from 
 - RLS enabled with public read policy
 - Dedup via unique constraint on `(source, source_id)`
 
+## API & Service Limits (always check before scaling)
+| Service | Free Limit | Current Usage | Notes |
+|---|---|---|---|
+| Ticketmaster | 5,000 calls/day | ~16/day (4 cities × 4 runs) | Safe headroom for ~300 cities |
+| Supabase DB | 500MB storage | Minimal | ~1KB per event |
+| Supabase Edge Functions | 500K invocations/month | ~120/month | No concern |
+| Expo Go | — | Dev only | Production needs a build |
+
+**Rule:** Before adding pagination, new cities, or new sources — estimate call volume first.
+
 ## Event Sources
 | Source | Status | Notes |
 |---|---|---|

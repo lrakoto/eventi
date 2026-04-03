@@ -1,112 +1,256 @@
 import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import { useState } from 'react';
+import {
+  ActivityIndicator,
+  FlatList,
+  Pressable,
+  SafeAreaView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import EventBottomSheet, { EventSummary } from '@/components/EventBottomSheet';
+import { NearbyEvent, useNearbyEvents } from '@/hooks/useNearbyEvents';
 
-import { Collapsible } from '@/components/ui/collapsible';
-import { ExternalLink } from '@/components/external-link';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Fonts } from '@/constants/theme';
+type SortMode = 'distance' | 'date';
 
-export default function TabTwoScreen() {
+function formatDate(iso: string) {
+  return new Date(iso).toLocaleDateString('en-US', {
+    weekday: 'short', month: 'short', day: 'numeric',
+    hour: 'numeric', minute: '2-digit',
+  });
+}
+
+function formatPrice(min: number | null, max: number | null, currency: string) {
+  if (min === 0 && (max === 0 || max === null)) return 'Free';
+  if (min === null) return null;
+  const fmt = (n: number) =>
+    new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(n);
+  return fmt(min);
+}
+
+function distanceKm(
+  lat1: number, lng1: number,
+  lat2: number, lng2: number
+): number {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) *
+    Math.cos((lat2 * Math.PI) / 180) *
+    Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+type EventRowProps = {
+  event: NearbyEvent;
+  userLat: number;
+  userLng: number;
+  onPress: () => void;
+};
+
+function EventRow({ event, userLat, userLng, onPress }: EventRowProps) {
+  const dist = distanceKm(userLat, userLng, event.lat, event.lng);
+  const distLabel = dist < 1 ? `${Math.round(dist * 1000)}m` : `${dist.toFixed(1)}km`;
+  const price = formatPrice(event.price_min, event.price_max, event.currency);
+
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#D0D0D0', dark: '#353636' }}
-      headerImage={
-        <IconSymbol
-          size={310}
-          color="#808080"
-          name="chevron.left.forwardslash.chevron.right"
-          style={styles.headerImage}
+    <Pressable style={styles.row} onPress={onPress}>
+      {event.image_url ? (
+        <Image source={{ uri: event.image_url }} style={styles.thumb} contentFit="cover" />
+      ) : (
+        <View style={[styles.thumb, styles.thumbPlaceholder]} />
+      )}
+      <View style={styles.rowContent}>
+        <Text style={styles.rowTitle} numberOfLines={2}>{event.title}</Text>
+        <Text style={styles.rowMeta}>{formatDate(event.starts_at)}</Text>
+        {event.venue_name && (
+          <Text style={styles.rowMeta} numberOfLines={1}>{event.venue_name}</Text>
+        )}
+        <View style={styles.rowFooter}>
+          <Text style={styles.rowDist}>{distLabel} away</Text>
+          {price && <Text style={styles.rowPrice}>{price}</Text>}
+        </View>
+      </View>
+    </Pressable>
+  );
+}
+
+export default function ListScreen() {
+  const { events, loading, errorMsg, userLocation } = useNearbyEvents();
+  const [sortMode, setSortMode] = useState<SortMode>('distance');
+  const [selectedEvent, setSelectedEvent] = useState<EventSummary | null>(null);
+
+  const sorted = [...events].sort((a, b) => {
+    if (sortMode === 'date') {
+      return new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime();
+    }
+    if (!userLocation) return 0;
+    const dA = distanceKm(userLocation.latitude, userLocation.longitude, a.lat, a.lng);
+    const dB = distanceKm(userLocation.latitude, userLocation.longitude, b.lat, b.lng);
+    return dA - dB;
+  });
+
+  return (
+    <SafeAreaView style={styles.container}>
+      {/* Sort toggle */}
+      <View style={styles.sortBar}>
+        <Pressable
+          style={[styles.sortBtn, sortMode === 'distance' && styles.sortBtnActive]}
+          onPress={() => setSortMode('distance')}
+        >
+          <Text style={[styles.sortBtnText, sortMode === 'distance' && styles.sortBtnTextActive]}>
+            Nearest
+          </Text>
+        </Pressable>
+        <Pressable
+          style={[styles.sortBtn, sortMode === 'date' && styles.sortBtnActive]}
+          onPress={() => setSortMode('date')}
+        >
+          <Text style={[styles.sortBtnText, sortMode === 'date' && styles.sortBtnTextActive]}>
+            Soonest
+          </Text>
+        </Pressable>
+      </View>
+
+      {loading && (
+        <View style={styles.centered}>
+          <ActivityIndicator size="large" />
+          <Text style={styles.loadingText}>Finding nearby events…</Text>
+        </View>
+      )}
+
+      {errorMsg && (
+        <View style={styles.centered}>
+          <Text style={styles.errorText}>{errorMsg}</Text>
+        </View>
+      )}
+
+      {!loading && !errorMsg && (
+        <FlatList
+          data={sorted}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => (
+            <EventRow
+              event={item}
+              userLat={userLocation?.latitude ?? 0}
+              userLng={userLocation?.longitude ?? 0}
+              onPress={() => setSelectedEvent(item)}
+            />
+          )}
+          ItemSeparatorComponent={() => <View style={styles.separator} />}
+          contentContainerStyle={styles.list}
+          ListEmptyComponent={
+            <Text style={styles.emptyText}>No events found nearby.</Text>
+          }
         />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText
-          type="title"
-          style={{
-            fontFamily: Fonts.rounded,
-          }}>
-          Explore
-        </ThemedText>
-      </ThemedView>
-      <ThemedText>This app includes example code to help you get started.</ThemedText>
-      <Collapsible title="File-based routing">
-        <ThemedText>
-          This app has two screens:{' '}
-          <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> and{' '}
-          <ThemedText type="defaultSemiBold">app/(tabs)/explore.tsx</ThemedText>
-        </ThemedText>
-        <ThemedText>
-          The layout file in <ThemedText type="defaultSemiBold">app/(tabs)/_layout.tsx</ThemedText>{' '}
-          sets up the tab navigator.
-        </ThemedText>
-        <ExternalLink href="https://docs.expo.dev/router/introduction">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Android, iOS, and web support">
-        <ThemedText>
-          You can open this project on Android, iOS, and the web. To open the web version, press{' '}
-          <ThemedText type="defaultSemiBold">w</ThemedText> in the terminal running this project.
-        </ThemedText>
-      </Collapsible>
-      <Collapsible title="Images">
-        <ThemedText>
-          For static images, you can use the <ThemedText type="defaultSemiBold">@2x</ThemedText> and{' '}
-          <ThemedText type="defaultSemiBold">@3x</ThemedText> suffixes to provide files for
-          different screen densities
-        </ThemedText>
-        <Image
-          source={require('@/assets/images/react-logo.png')}
-          style={{ width: 100, height: 100, alignSelf: 'center' }}
-        />
-        <ExternalLink href="https://reactnative.dev/docs/images">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Light and dark mode components">
-        <ThemedText>
-          This template has light and dark mode support. The{' '}
-          <ThemedText type="defaultSemiBold">useColorScheme()</ThemedText> hook lets you inspect
-          what the user&apos;s current color scheme is, and so you can adjust UI colors accordingly.
-        </ThemedText>
-        <ExternalLink href="https://docs.expo.dev/develop/user-interface/color-themes/">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Animations">
-        <ThemedText>
-          This template includes an example of an animated component. The{' '}
-          <ThemedText type="defaultSemiBold">components/HelloWave.tsx</ThemedText> component uses
-          the powerful{' '}
-          <ThemedText type="defaultSemiBold" style={{ fontFamily: Fonts.mono }}>
-            react-native-reanimated
-          </ThemedText>{' '}
-          library to create a waving hand animation.
-        </ThemedText>
-        {Platform.select({
-          ios: (
-            <ThemedText>
-              The <ThemedText type="defaultSemiBold">components/ParallaxScrollView.tsx</ThemedText>{' '}
-              component provides a parallax effect for the header image.
-            </ThemedText>
-          ),
-        })}
-      </Collapsible>
-    </ParallaxScrollView>
+      )}
+
+      <EventBottomSheet
+        event={selectedEvent}
+        onClose={() => setSelectedEvent(null)}
+      />
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  headerImage: {
-    color: '#808080',
-    bottom: -90,
-    left: -35,
-    position: 'absolute',
+  container: {
+    flex: 1,
+    backgroundColor: '#f9f9f9',
   },
-  titleContainer: {
+  sortBar: {
     flexDirection: 'row',
+    padding: 12,
     gap: 8,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  sortBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 7,
+    borderRadius: 20,
+    backgroundColor: '#f0f0f0',
+  },
+  sortBtnActive: {
+    backgroundColor: '#111',
+  },
+  sortBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#555',
+  },
+  sortBtnTextActive: {
+    color: '#fff',
+  },
+  list: {
+    padding: 12,
+  },
+  row: {
+    flexDirection: 'row',
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  thumb: {
+    width: 90,
+    height: 90,
+  },
+  thumbPlaceholder: {
+    backgroundColor: '#e0e0e0',
+  },
+  rowContent: {
+    flex: 1,
+    padding: 10,
+    gap: 2,
+  },
+  rowTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#111',
+  },
+  rowMeta: {
+    fontSize: 13,
+    color: '#555',
+  },
+  rowFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 4,
+  },
+  rowDist: {
+    fontSize: 12,
+    color: '#999',
+  },
+  rowPrice: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#111',
+  },
+  separator: {
+    height: 8,
+  },
+  centered: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 12,
+  },
+  loadingText: {
+    fontSize: 14,
+    color: '#666',
+  },
+  errorText: {
+    fontSize: 14,
+    color: '#c00',
+    textAlign: 'center',
+  },
+  emptyText: {
+    textAlign: 'center',
+    color: '#999',
+    marginTop: 40,
   },
 });
