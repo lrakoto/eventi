@@ -3,26 +3,18 @@ import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import MapView, { Marker, Region } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { supabase } from '@/lib/supabase';
+import EventBottomSheet, { EventSummary } from '@/components/EventBottomSheet';
 
 const INITIAL_DELTA = { latitudeDelta: 0.05, longitudeDelta: 0.05 };
-const RADIUS_METERS = 50000; // 50km (temporary for testing)
+const RADIUS_METERS = 50000; // 50km (set to 10000 for production)
 
-type Event = {
-  id: string;
-  title: string;
-  venue_name: string | null;
-  starts_at: string;
-  price_min: number | null;
-  price_max: number | null;
-  currency: string;
-  lat: number;
-  lng: number;
-};
+type Event = EventSummary & { lat: number; lng: number };
 
 export default function MapScreen() {
   const mapRef = useRef<MapView>(null);
   const [region, setRegion] = useState<Region | null>(null);
   const [events, setEvents] = useState<Event[]>([]);
+  const [selectedEvent, setSelectedEvent] = useState<EventSummary | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   useEffect(() => {
@@ -70,26 +62,36 @@ export default function MapScreen() {
   }
 
   return (
-    <MapView
-      ref={mapRef}
-      style={StyleSheet.absoluteFillObject}
-      initialRegion={region}
-      showsUserLocation
-      showsMyLocationButton
-    >
-      {events.map((event) => (
-        <Marker
-          key={event.id}
-          coordinate={{ latitude: event.lat, longitude: event.lng }}
-          title={event.title}
-          description={event.venue_name ?? undefined}
-        />
-      ))}
-    </MapView>
+    <View style={styles.container}>
+      <MapView
+        ref={mapRef}
+        style={StyleSheet.absoluteFillObject}
+        initialRegion={region}
+        showsUserLocation
+        showsMyLocationButton
+      >
+        {events.map((event) => (
+          <Marker
+            key={event.id}
+            coordinate={{ latitude: event.lat, longitude: event.lng }}
+            onPress={() => setSelectedEvent(event)}
+          />
+        ))}
+      </MapView>
+
+      <EventBottomSheet
+        event={selectedEvent}
+        onClose={() => setSelectedEvent(null)}
+      />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    zIndex: 0,
+  },
   centered: {
     flex: 1,
     justifyContent: 'center',
