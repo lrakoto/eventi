@@ -1,14 +1,33 @@
-import { useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
-import MapView, { Marker, Region } from 'react-native-maps';
-import EventBottomSheet, { EventSummary } from '@/components/EventBottomSheet';
+import MapView, { Region } from 'react-native-maps';
 import { useNearbyEvents } from '@/hooks/useNearbyEvents';
+import { useEventSheet } from '@/lib/EventSheetContext';
+import { SHEET_FRACTION } from '@/constants/layout';
+import EventMarker from '@/components/EventMarker';
 
 const INITIAL_DELTA = { latitudeDelta: 0.05, longitudeDelta: 0.05 };
+const LAT_OFFSET = INITIAL_DELTA.latitudeDelta * (SHEET_FRACTION / 2);
+
+function centeredRegion(lat: number, lng: number): Region {
+  return {
+    latitude: lat - LAT_OFFSET,
+    longitude: lng,
+    ...INITIAL_DELTA,
+  };
+}
 
 export default function MapScreen() {
+  const mapRef = useRef<MapView>(null);
   const { events, loading, errorMsg, userLocation } = useNearbyEvents();
-  const [selectedEvent, setSelectedEvent] = useState<EventSummary | null>(null);
+  const { openSheet, registerMapPan, selectedEventId } = useEventSheet();
+
+  useEffect(() => {
+    registerMapPan((lat, lng) => {
+      mapRef.current?.animateToRegion(centeredRegion(lat, lng), 400);
+    });
+    return () => registerMapPan(null);
+  }, [registerMapPan]);
 
   if (errorMsg) {
     return (
@@ -27,41 +46,30 @@ export default function MapScreen() {
     );
   }
 
-  const region: Region = {
-    latitude: userLocation.latitude,
-    longitude: userLocation.longitude,
-    ...INITIAL_DELTA,
-  };
-
   return (
     <View style={styles.container}>
       <MapView
+        ref={mapRef}
         style={StyleSheet.absoluteFillObject}
-        initialRegion={region}
+        initialRegion={centeredRegion(userLocation.latitude, userLocation.longitude)}
         showsUserLocation
         showsMyLocationButton
       >
         {events.map((event) => (
-          <Marker
+          <EventMarker
             key={event.id}
-            coordinate={{ latitude: event.lat, longitude: event.lng }}
-            onPress={() => setSelectedEvent(event)}
+            event={event}
+            selected={event.id === selectedEventId}
+            onPress={() => openSheet(event)}
           />
         ))}
       </MapView>
-
-      <EventBottomSheet
-        event={selectedEvent}
-        onClose={() => setSelectedEvent(null)}
-      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
+  container: { flex: 1 },
   centered: {
     flex: 1,
     justifyContent: 'center',
@@ -69,13 +77,6 @@ const styles = StyleSheet.create({
     gap: 12,
     padding: 24,
   },
-  loadingText: {
-    fontSize: 14,
-    color: '#666',
-  },
-  errorText: {
-    fontSize: 14,
-    color: '#c00',
-    textAlign: 'center',
-  },
+  loadingText: { fontSize: 14, color: '#666' },
+  errorText: { fontSize: 14, color: '#c00', textAlign: 'center' },
 });

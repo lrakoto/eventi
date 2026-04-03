@@ -4,8 +4,9 @@ import { supabase } from '@/lib/supabase';
 import { EventSummary } from '@/components/EventBottomSheet';
 
 const RADIUS_METERS = 50000; // 50km (set to 10000 for production)
+const SPARSE_THRESHOLD = 5; // trigger on-demand fetch if fewer than this many events
 
-export type NearbyEvent = EventSummary & { lat: number; lng: number };
+export type NearbyEvent = EventSummary & { lat: number; lng: number; created_at: string };
 
 export function useNearbyEvents() {
   const [events, setEvents] = useState<NearbyEvent[]>([]);
@@ -21,24 +22,50 @@ export function useNearbyEvents() {
         setLoading(false);
         return;
       }
+
       const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
       const { latitude, longitude } = loc.coords;
       setUserLocation({ latitude, longitude });
 
-      const { data, error } = await supabase.rpc('nearby_events', {
-        lat: latitude,
-        lng: longitude,
-        radius_m: RADIUS_METERS,
-      });
+      const data = await fetchFromDB(latitude, longitude);
 
-      if (error) {
-        console.error('fetchEvents error:', error.message);
+      // If sparse results, trigger on-demand ingest for this location then re-fetch
+      if (data.length < SPARSE_THRESHOLD) {
+        console.log(`Sparse results (${data.length}), triggering on-demand ingest...`);
+        await triggerIngest(latitude, longitude);
+        const refreshed = await fetchFromDB(latitude, longitude);
+        setEvents(refreshed);
       } else {
-        setEvents(data ?? []);
+        setEvents(data);
       }
+
       setLoading(false);
     })();
   }, []);
 
   return { events, loading, errorMsg, userLocation };
+}
+
+async function fetchFromDB(lat: number, lng: number): Promise<NearbyEvent[]> {
+  const { data, error } = await supabase.rpc('nearby_events', {
+    lat,
+    lng,
+    radius_m: RADIUS_METERS,
+  });
+  if (error) {
+    console.error('fetchEvents error:', error.message);
+    return [];
+  }
+  return data ?? [];
+}
+
+async function triggerIngest(lat: number, lng: number) {
+  try {
+    const { error } = await supabase.functions.invoke('ingest-for-location', {
+      body: { lat, lng },
+    });
+    if (error) console.error('ingest-for-location error:', error.message);
+  } catch (e) {
+    console.error('ingest-for-location failed:', e);
+  }
 }
