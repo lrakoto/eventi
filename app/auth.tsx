@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -23,6 +23,11 @@ export default function AuthScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [appleAvailable, setAppleAvailable] = useState(false);
+
+  useEffect(() => {
+    AppleAuthentication.isAvailableAsync().then(setAppleAvailable);
+  }, []);
 
   async function handleAppleSignIn() {
     try {
@@ -89,11 +94,16 @@ export default function AuthScreen() {
       <Text style={styles.title}>Welcome to Eventi</Text>
       <Text style={styles.subtitle}>Sign in to save events and share your own.</Text>
 
-      {/* Apple Sign-In */}
-      <Pressable style={[styles.btn, styles.appleBtn]} onPress={handleAppleSignIn} disabled={loading}>
-        <MaterialIcons name="apple" size={20} color="#fff" />
-        <Text style={[styles.btnText, { color: '#fff' }]}>Continue with Apple</Text>
-      </Pressable>
+      {/* Apple Sign-In — Apple's official button (required for App Store HIG compliance) */}
+      {appleAvailable && (
+        <AppleAuthentication.AppleAuthenticationButton
+          buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
+          buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
+          cornerRadius={12}
+          style={styles.appleBtn}
+          onPress={handleAppleSignIn}
+        />
+      )}
 
       <View style={styles.divider}>
         <View style={styles.line} />
@@ -176,7 +186,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     marginBottom: 12,
   },
-  appleBtn: { backgroundColor: '#000' },
+  appleBtn: { width: '100%', height: 50, marginBottom: 12 },
   emailBtn: { backgroundColor: '#3B82F6' },
   btnText: { fontSize: 15, fontWeight: '600', color: '#111' },
   divider: {
