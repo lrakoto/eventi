@@ -18,7 +18,8 @@
         ]
       },
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "Eventi uses your location to show nearby events on the map."
+        "NSLocationWhenInUseUsageDescription": "Eventi uses your location to show nearby events on the map.",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
