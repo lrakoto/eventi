@@ -74,6 +74,12 @@ An events aggregator app for iOS (targeting Apple App Store). Pulls events from 
 - PostGIS `st_point(lng, lat)` — longitude comes first
 - `expo-secure-store` used instead of AsyncStorage (new arch compatibility)
 - App radius: 50000m for testing, set back to 10000 for production
+- Auth uses `expo-apple-authentication` (first-party) — NOT `@invertase/react-native-apple-authentication` or `@react-native-google-signin`, which caused `pod install` failures on SDK 54 + New Arch. Native `signInWithIdToken` flow into Supabase.
+- Apple Sign-In entitlement via `ios.usesAppleSignIn: true` + `ios.entitlements` in app.json (CNG prebuild applies it on EAS build)
+- Builds run via **EAS Build** (cloud) — local Xcode not installed (disk space). `eas build -p ios --profile development`. First build needs interactive Apple login (2FA) in a real terminal; after that, credentials are stored on EAS and builds run `--non-interactive`.
+- Dev build = dev client → run `npx expo start --dev-client` (use `--tunnel` if device can't find Metro on LAN)
+- Device must enable **Developer Mode** (Settings → Privacy & Security) to run dev builds
+- Supabase Apple provider: native flow only needs bundle id `com.lovarakoto.eventi` as Authorized Client ID (no Services ID / secret key)
 
 ## Supabase Project
 - Project ref: `sjkvobewtukxbhmhuidh`
@@ -89,9 +95,12 @@ An events aggregator app for iOS (targeting Apple App Store). Pulls events from 
 - [x] Scheduled cron for ingest functions (running in Supabase)
 - [x] Event detail screen (tap marker → details)
 - [x] List/sort view (alternative to map)
-- [ ] Auth (Apple Sign-In + email) — code done, blocked on Xcode install (disk space) + Apple Dev account
+- [x] Auth (Apple Sign-In + email) — working on-device via EAS dev build; Supabase session persists
+- [x] User-created events (add-event screen, created_by + RLS) + saved events
+- [x] EAS Build set up (project linked, dev build green on device)
+- [ ] Google Sign-In — deferred (removed to fix pod install; re-add later as focused effort)
 - [ ] Event filtering (category, date, price)
-- [ ] App Store submission prep
+- [ ] App Store submission prep (privacy policy, native Apple button for HIG compliance, production build)
 
 ## App Store Requirements
 - Apple Sign-In mandatory (offering social login)
