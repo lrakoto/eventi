@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { NearbyEvent, useNearbyEvents } from '@/hooks/useNearbyEvents';
 import { useEventSheet } from '@/lib/EventSheetContext';
+import { useFilters, applyFilters } from '@/lib/FilterContext';
 
 type SortMode = 'distance' | 'date';
 
@@ -81,9 +82,12 @@ function EventRow({ event, userLat, userLng, onPress }: EventRowProps) {
 export default function ListScreen() {
   const { events, loading, errorMsg, userLocation } = useNearbyEvents();
   const { openSheet } = useEventSheet();
+  const { dateFilter, priceFilter, activeCategory, isActive, reset } = useFilters();
   const [sortMode, setSortMode] = useState<SortMode>('distance');
 
-  const sorted = [...events].sort((a, b) => {
+  const visible = applyFilters(events, { dateFilter, priceFilter, activeCategory });
+
+  const sorted = [...visible].sort((a, b) => {
     if (sortMode === 'date') {
       return new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime();
     }
@@ -114,6 +118,12 @@ export default function ListScreen() {
           </Text>
         </Pressable>
       </View>
+
+      {isActive && (
+        <Pressable style={styles.filterBanner} onPress={reset}>
+          <Text style={styles.filterBannerText}>Filters active — tap to clear</Text>
+        </Pressable>
+      )}
 
       {loading && (
         <View style={styles.centered}>
@@ -181,6 +191,17 @@ const styles = StyleSheet.create({
   },
   sortBtnTextActive: {
     color: '#fff',
+  },
+  filterBanner: {
+    backgroundColor: '#eef2ff',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+  },
+  filterBannerText: {
+    fontSize: 13,
+    color: '#3B82F6',
+    fontWeight: '600',
   },
   list: {
     padding: 12,

@@ -11,6 +11,7 @@ import SearchOverlay from '@/components/SearchOverlay';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { EventSheetProvider, useEventSheet } from '@/lib/EventSheetContext';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
+import { FilterProvider } from '@/lib/FilterContext';
 import EventBottomSheet from '@/components/EventBottomSheet';
 import PersistentListSheet from '@/components/PersistentListSheet';
 import { useNearbyEvents } from '@/hooks/useNearbyEvents';
@@ -131,6 +132,7 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={styles.root}>
       <AuthProvider>
+      <FilterProvider>
       <EventSheetProvider>
         {inTabs && <TopNav />}
         <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
@@ -144,6 +146,7 @@ export default function RootLayout() {
         </ThemeProvider>
         <Portals />
       </EventSheetProvider>
+      </FilterProvider>
       </AuthProvider>
     </GestureHandlerRootView>
   );

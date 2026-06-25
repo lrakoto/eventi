@@ -1,36 +1,10 @@
 import { Image } from 'expo-image';
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { FlatList, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { NearbyEvent } from '@/hooks/useNearbyEvents';
 import { useEventSheet } from '@/lib/EventSheetContext';
+import { useFilters, applyFilters, deriveCategories, DateFilter } from '@/lib/FilterContext';
 import { SHEET_HEIGHT } from '@/constants/layout';
-
-type DateFilter = 'all' | 'today' | 'weekend' | 'week';
-type PriceFilter = 'any' | 'free' | 'paid';
-
-function topCategory(raw: string | null): string | null {
-  if (!raw) return null;
-  return raw.split('/')[0].trim();
-}
-
-function applyDateFilter(event: NearbyEvent, filter: DateFilter): boolean {
-  if (filter === 'all') return true;
-  const now = new Date();
-  const date = new Date(event.starts_at);
-  if (filter === 'today') {
-    return date.toDateString() === now.toDateString();
-  }
-  if (filter === 'week') {
-    const weekOut = new Date(now);
-    weekOut.setDate(now.getDate() + 7);
-    return date >= now && date <= weekOut;
-  }
-  if (filter === 'weekend') {
-    const day = date.getDay();
-    return (day === 6 || day === 0) && date >= now;
-  }
-  return true;
-}
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('en-US', {
@@ -67,31 +41,15 @@ type Props = {
 
 export default function PersistentListSheet({ events, userLat, userLng }: Props) {
   const { openSheet } = useEventSheet();
-  const [dateFilter, setDateFilter] = useState<DateFilter>('all');
-  const [priceFilter, setPriceFilter] = useState<PriceFilter>('any');
-  const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  const { dateFilter, priceFilter, activeCategory, setDateFilter, setPriceFilter, setActiveCategory, isActive, reset } =
+    useFilters();
 
-  const categories = useMemo(() => {
-    const counts: Record<string, number> = {};
-    for (const e of events) {
-      const cat = topCategory(e.category);
-      if (cat && cat !== 'undefined') counts[cat] = (counts[cat] ?? 0) + 1;
-    }
-    return Object.entries(counts)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 6)
-      .map(([cat]) => cat);
-  }, [events]);
+  const categories = useMemo(() => deriveCategories(events), [events]);
 
-  const filtered = useMemo(() => {
-    return events.filter((e) => {
-      if (!applyDateFilter(e, dateFilter)) return false;
-      if (priceFilter === 'free' && !(e.price_min === 0 && (e.price_max === 0 || e.price_max === null))) return false;
-      if (priceFilter === 'paid' && e.price_min === 0 && (e.price_max === 0 || e.price_max === null)) return false;
-      if (activeCategory && topCategory(e.category) !== activeCategory) return false;
-      return true;
-    });
-  }, [events, dateFilter, priceFilter, activeCategory]);
+  const filtered = useMemo(
+    () => applyFilters(events, { dateFilter, priceFilter, activeCategory }),
+    [events, dateFilter, priceFilter, activeCategory],
+  );
 
   const DATE_CHIPS: { label: string; value: DateFilter }[] = [
     { label: 'Today', value: 'today' },
@@ -105,6 +63,11 @@ export default function PersistentListSheet({ events, userLat, userLng }: Props)
       <View style={styles.header}>
         <Text style={styles.heading}>Nearby Events</Text>
         <Text style={styles.count}>{filtered.length}</Text>
+        {isActive && (
+          <Pressable onPress={reset} hitSlop={8} style={styles.clearBtn}>
+            <Text style={styles.clearText}>Clear</Text>
+          </Pressable>
+        )}
       </View>
 
       {/* Filter chips */}
@@ -229,6 +192,14 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '500',
     color: '#999',
+  },
+  clearBtn: {
+    marginLeft: 'auto',
+  },
+  clearText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#3B82F6',
   },
   chipsScroll: {
     flexGrow: 0,

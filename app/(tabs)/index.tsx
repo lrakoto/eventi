@@ -1,8 +1,9 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import MapView, { Region } from 'react-native-maps';
 import { useNearbyEvents } from '@/hooks/useNearbyEvents';
 import { useEventSheet } from '@/lib/EventSheetContext';
+import { useFilters, applyFilters } from '@/lib/FilterContext';
 import { SHEET_FRACTION } from '@/constants/layout';
 import EventMarker from '@/components/EventMarker';
 
@@ -21,6 +22,12 @@ export default function MapScreen() {
   const mapRef = useRef<MapView>(null);
   const { events, loading, errorMsg, userLocation } = useNearbyEvents();
   const { openSheet, registerMapPan, selectedEventId } = useEventSheet();
+  const { dateFilter, priceFilter, activeCategory } = useFilters();
+
+  const visibleEvents = useMemo(
+    () => applyFilters(events, { dateFilter, priceFilter, activeCategory }),
+    [events, dateFilter, priceFilter, activeCategory],
+  );
 
   useEffect(() => {
     registerMapPan((lat, lng) => {
@@ -55,7 +62,7 @@ export default function MapScreen() {
         showsUserLocation
         showsMyLocationButton
       >
-        {events.map((event) => (
+        {visibleEvents.map((event) => (
           <EventMarker
             key={event.id}
             event={event}
