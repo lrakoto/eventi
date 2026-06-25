@@ -13,7 +13,9 @@
       "supportsTablet": true,
       "usesAppleSignIn": true,
       "entitlements": {
-        "com.apple.developer.applesignin": ["Default"]
+        "com.apple.developer.applesignin": [
+          "Default"
+        ]
       },
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "Eventi uses your location to show nearby events on the map."
@@ -59,6 +61,13 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "912cc7dd-5ee5-4272-b779-f57cb085128d"
+      }
+    },
+    "owner": "lovarakoto"
   }
 }
