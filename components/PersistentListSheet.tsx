@@ -1,8 +1,36 @@
 import { Image } from 'expo-image';
-import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useMemo, useState } from 'react';
+import { FlatList, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { NearbyEvent } from '@/hooks/useNearbyEvents';
 import { useEventSheet } from '@/lib/EventSheetContext';
 import { SHEET_HEIGHT } from '@/constants/layout';
+
+type DateFilter = 'all' | 'today' | 'weekend' | 'week';
+type PriceFilter = 'any' | 'free' | 'paid';
+
+function topCategory(raw: string | null): string | null {
+  if (!raw) return null;
+  return raw.split('/')[0].trim();
+}
+
+function applyDateFilter(event: NearbyEvent, filter: DateFilter): boolean {
+  if (filter === 'all') return true;
+  const now = new Date();
+  const date = new Date(event.starts_at);
+  if (filter === 'today') {
+    return date.toDateString() === now.toDateString();
+  }
+  if (filter === 'week') {
+    const weekOut = new Date(now);
+    weekOut.setDate(now.getDate() + 7);
+    return date >= now && date <= weekOut;
+  }
+  if (filter === 'weekend') {
+    const day = date.getDay();
+    return (day === 6 || day === 0) && date >= now;
+  }
+  return true;
+}
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('en-US', {
@@ -39,13 +67,91 @@ type Props = {
 
 export default function PersistentListSheet({ events, userLat, userLng }: Props) {
   const { openSheet } = useEventSheet();
+  const [dateFilter, setDateFilter] = useState<DateFilter>('all');
+  const [priceFilter, setPriceFilter] = useState<PriceFilter>('any');
+  const [activeCategory, setActiveCategory] = useState<string | null>(null);
+
+  const categories = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const e of events) {
+      const cat = topCategory(e.category);
+      if (cat && cat !== 'undefined') counts[cat] = (counts[cat] ?? 0) + 1;
+    }
+    return Object.entries(counts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 6)
+      .map(([cat]) => cat);
+  }, [events]);
+
+  const filtered = useMemo(() => {
+    return events.filter((e) => {
+      if (!applyDateFilter(e, dateFilter)) return false;
+      if (priceFilter === 'free' && !(e.price_min === 0 && (e.price_max === 0 || e.price_max === null))) return false;
+      if (priceFilter === 'paid' && e.price_min === 0 && (e.price_max === 0 || e.price_max === null)) return false;
+      if (activeCategory && topCategory(e.category) !== activeCategory) return false;
+      return true;
+    });
+  }, [events, dateFilter, priceFilter, activeCategory]);
+
+  const DATE_CHIPS: { label: string; value: DateFilter }[] = [
+    { label: 'Today', value: 'today' },
+    { label: 'Weekend', value: 'weekend' },
+    { label: 'This Week', value: 'week' },
+  ];
 
   return (
     <View style={styles.sheet}>
       <View style={styles.handle} />
-      <Text style={styles.heading}>Nearby Events</Text>
+      <View style={styles.header}>
+        <Text style={styles.heading}>Nearby Events</Text>
+        <Text style={styles.count}>{filtered.length}</Text>
+      </View>
+
+      {/* Filter chips */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.chips}
+        style={styles.chipsScroll}
+      >
+        {DATE_CHIPS.map((chip) => {
+          const active = dateFilter === chip.value;
+          return (
+            <Pressable
+              key={chip.value}
+              style={[styles.chip, active && styles.chipActive]}
+              onPress={() => setDateFilter(active ? 'all' : chip.value)}
+            >
+              <Text style={[styles.chipText, active && styles.chipTextActive]}>{chip.label}</Text>
+            </Pressable>
+          );
+        })}
+
+        <Pressable
+          style={[styles.chip, priceFilter === 'free' && styles.chipActive]}
+          onPress={() => setPriceFilter(priceFilter === 'free' ? 'any' : 'free')}
+        >
+          <Text style={[styles.chipText, priceFilter === 'free' && styles.chipTextActive]}>Free</Text>
+        </Pressable>
+
+        {categories.map((cat) => {
+          const active = activeCategory === cat;
+          return (
+            <Pressable
+              key={cat}
+              style={[styles.chip, active && styles.chipActive]}
+              onPress={() => setActiveCategory(active ? null : cat)}
+            >
+              <Text style={[styles.chipText, active && styles.chipTextActive]}>
+                {cat.charAt(0).toUpperCase() + cat.slice(1)}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </ScrollView>
+
       <FlatList
-        data={events}
+        data={filtered}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => {
           const dist = distanceKm(userLat, userLng, item.lat, item.lng);
@@ -106,13 +212,53 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     marginTop: 10,
   },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 6,
+    gap: 6,
+  },
   heading: {
     fontSize: 16,
     fontWeight: '700',
     color: '#111',
+  },
+  count: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#999',
+  },
+  chipsScroll: {
+    flexGrow: 0,
+    overflow: 'visible',
+  },
+  chips: {
     paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 6,
+    paddingVertical: 6,
+    gap: 6,
+    flexDirection: 'row',
+  },
+  chip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    backgroundColor: '#fff',
+  },
+  chipActive: {
+    backgroundColor: '#111',
+    borderColor: '#111',
+  },
+  chipText: {
+    fontSize: 13,
+    color: '#444',
+    fontWeight: '500',
+  },
+  chipTextActive: {
+    color: '#fff',
   },
   listContent: {
     paddingHorizontal: 12,

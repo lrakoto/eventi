@@ -1,8 +1,13 @@
 import { BlurView } from 'expo-blur';
 import { Image } from 'expo-image';
 import { openURL } from 'expo-linking';
-import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useRouter } from 'expo-router';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { SHEET_HEIGHT } from '@/constants/layout';
+import { useAuth } from '@/lib/AuthContext';
+import { useSavedEvents } from '@/hooks/useSavedEvents';
+import { supabase } from '@/lib/supabase';
 
 export type EventSummary = {
   id: string;
@@ -16,11 +21,13 @@ export type EventSummary = {
   image_url: string | null;
   url: string | null;
   category: string | null;
+  created_by: string | null;
 };
 
 type Props = {
   event: EventSummary | null;
   onClose: () => void;
+  onDeleted?: () => void;
 };
 
 function formatDate(iso: string) {
@@ -108,11 +115,42 @@ function openDirections(address: string | null, venueName: string | null) {
   Linking.openURL(`maps://maps.apple.com/?q=${query}`);
 }
 
-export default function EventBottomSheet({ event, onClose }: Props) {
+export default function EventBottomSheet({ event, onClose, onDeleted }: Props) {
+  const { session } = useAuth();
+  const { savedIds, toggle } = useSavedEvents();
+  const router = useRouter();
+
   if (!event) return null;
 
   const price = formatPrice(event.price_min, event.price_max, event.currency);
   const hasDir = !!(event.address || event.venue_name);
+  const isOwner = !!session && event.created_by === session.user.id;
+  const isSaved = savedIds.has(event.id);
+
+  async function handleSave() {
+    if (!session) {
+      router.push('/auth');
+      return;
+    }
+    await toggle(event!.id);
+  }
+
+  function handleEdit() {
+    router.push({ pathname: '/add-event', params: { id: event!.id } });
+  }
+
+  function handleDelete() {
+    Alert.alert('Delete event', 'This will permanently remove your event.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete', style: 'destructive', onPress: async () => {
+          await supabase.from('events').delete().eq('id', event!.id);
+          onClose();
+          onDeleted?.();
+        },
+      },
+    ]);
+  }
 
   return (
     <View style={styles.sheet}>
@@ -127,13 +165,39 @@ export default function EventBottomSheet({ event, onClose }: Props) {
             <Text style={styles.closeIcon}>✕</Text>
           </BlurView>
         </Pressable>
+
+        {/* Save button */}
+        <Pressable onPress={handleSave} style={styles.saveBtn} hitSlop={12}>
+          <BlurView intensity={60} tint="dark" style={styles.blurView}>
+            <MaterialIcons
+              name={isSaved ? 'bookmark' : 'bookmark-outline'}
+              size={18}
+              color="#fff"
+            />
+          </BlurView>
+        </Pressable>
       </View>
 
       <View style={styles.content}>
-        {event.category && (
-          <Text style={styles.category}>{event.category.toUpperCase()}</Text>
-        )}
-        <Text style={styles.title} numberOfLines={2}>{event.title}</Text>
+        <View style={styles.titleRow}>
+          <View style={styles.titleCol}>
+            {event.category && (
+              <Text style={styles.category}>{event.category.toUpperCase()}</Text>
+            )}
+            <Text style={styles.title} numberOfLines={2}>{event.title}</Text>
+          </View>
+          {isOwner && (
+            <View style={styles.ownerActions}>
+              <Pressable onPress={handleEdit} hitSlop={8}>
+                <MaterialIcons name="edit" size={20} color="#555" />
+              </Pressable>
+              <Pressable onPress={handleDelete} hitSlop={8}>
+                <MaterialIcons name="delete-outline" size={20} color="#e53e3e" />
+              </Pressable>
+            </View>
+          )}
+        </View>
+
         <Text style={styles.meta}>{formatDate(event.starts_at)}</Text>
         {event.venue_name && <Text style={styles.meta}>{event.venue_name}</Text>}
         {event.address && (
@@ -181,6 +245,28 @@ const styles = StyleSheet.create({
     height: 32,
     borderRadius: 16,
     overflow: 'hidden',
+  },
+  saveBtn: {
+    position: 'absolute',
+    top: 12,
+    right: 52,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
+  titleCol: {
+    flex: 1,
+  },
+  ownerActions: {
+    flexDirection: 'row',
+    gap: 12,
+    paddingTop: 4,
   },
   blurView: {
     flex: 1,

@@ -1,7 +1,6 @@
 import { Image } from 'expo-image';
 import { useEffect, useRef } from 'react';
 import {
-  Animated,
   Dimensions,
   FlatList,
   KeyboardAvoidingView,
@@ -13,6 +12,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import Animated, { useSharedValue, withSpring, useAnimatedStyle } from 'react-native-reanimated';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { NearbyEvent } from '@/hooks/useNearbyEvents';
 import { useEventSheet } from '@/lib/EventSheetContext';
@@ -49,17 +49,16 @@ export default function SearchOverlay({ query, onChangeQuery, onClose, events }:
   const inputRef = useRef<TextInput>(null);
   const { openSheet } = useEventSheet();
 
-  const translateY = useRef(new Animated.Value(START_TRANSLATE_Y)).current;
+  const translateY = useSharedValue(START_TRANSLATE_Y);
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: translateY.value }],
+  }));
 
   useEffect(() => {
-    inputRef.current?.focus();
-    Animated.spring(translateY, {
-      toValue: 0,
-      damping: 26,
-      stiffness: 260,
-      mass: 0.8,
-      useNativeDriver: true,
-    }).start();
+    translateY.value = withSpring(0, { damping: 26, stiffness: 260, mass: 0.8 });
+    // Delay focus so keyboard doesn't fight the slide-up animation
+    const t = setTimeout(() => inputRef.current?.focus(), 150);
+    return () => clearTimeout(t);
   }, []);
 
   function handleSelect(event: NearbyEvent) {
@@ -68,7 +67,7 @@ export default function SearchOverlay({ query, onChangeQuery, onClose, events }:
   }
 
   return (
-    <Animated.View style={[styles.container, { transform: [{ translateY }] }]}>
+    <Animated.View style={[styles.container, animatedStyle]}>
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}

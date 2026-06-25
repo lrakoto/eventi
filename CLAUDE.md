@@ -64,7 +64,7 @@ An events aggregator app for iOS (targeting Apple App Store). Pulls events from 
 |---|---|---|
 | Ticketmaster | Working | 5000 calls/day free, pass startDateTime=now() |
 | Eventbrite | Skipped | API search endpoint restricted for new keys (404) |
-| Meetup | Pending | |
+| Meetup | Blocked | Requires paid Pro subscription — not viable for now |
 | StubHub | Pending | |
 
 ## Key Decisions & Gotchas
@@ -85,11 +85,11 @@ An events aggregator app for iOS (targeting Apple App Store). Pulls events from 
 - [x] Supabase project created + schema migrated
 - [x] Map screen with user location + real Ticketmaster markers
 - [x] Event ingestion: Ticketmaster (working)
-- [ ] Event ingestion: Meetup
-- [ ] Scheduled cron for ingest functions
-- [ ] Auth (Apple Sign-In + email)
-- [ ] Event detail screen (tap marker → details)
-- [ ] List/sort view (alternative to map)
+- [ ] Event ingestion: Meetup (blocked — paid API)
+- [x] Scheduled cron for ingest functions (running in Supabase)
+- [x] Event detail screen (tap marker → details)
+- [x] List/sort view (alternative to map)
+- [ ] Auth (Apple Sign-In + email) — code done, blocked on Xcode install (disk space) + Apple Dev account
 - [ ] Event filtering (category, date, price)
 - [ ] App Store submission prep
 

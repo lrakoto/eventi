@@ -9,8 +9,8 @@ import {
   Text,
   View,
 } from 'react-native';
-import EventBottomSheet, { EventSummary } from '@/components/EventBottomSheet';
 import { NearbyEvent, useNearbyEvents } from '@/hooks/useNearbyEvents';
+import { useEventSheet } from '@/lib/EventSheetContext';
 
 type SortMode = 'distance' | 'date';
 
@@ -80,8 +80,8 @@ function EventRow({ event, userLat, userLng, onPress }: EventRowProps) {
 
 export default function ListScreen() {
   const { events, loading, errorMsg, userLocation } = useNearbyEvents();
+  const { openSheet } = useEventSheet();
   const [sortMode, setSortMode] = useState<SortMode>('distance');
-  const [selectedEvent, setSelectedEvent] = useState<EventSummary | null>(null);
 
   const sorted = [...events].sort((a, b) => {
     if (sortMode === 'date') {
@@ -137,7 +137,7 @@ export default function ListScreen() {
               event={item}
               userLat={userLocation?.latitude ?? 0}
               userLng={userLocation?.longitude ?? 0}
-              onPress={() => setSelectedEvent(item)}
+              onPress={() => openSheet(item)}
             />
           )}
           ItemSeparatorComponent={() => <View style={styles.separator} />}
@@ -148,10 +148,6 @@ export default function ListScreen() {
         />
       )}
 
-      <EventBottomSheet
-        event={selectedEvent}
-        onClose={() => setSelectedEvent(null)}
-      />
     </SafeAreaView>
   );
 }
