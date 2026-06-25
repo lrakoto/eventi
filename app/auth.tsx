@@ -12,15 +12,8 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
-import { appleAuth } from '@invertase/react-native-apple-authentication';
-import { GoogleSignin } from '@react-native-google-signin/google-signin';
+import * as AppleAuthentication from 'expo-apple-authentication';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-
-GoogleSignin.configure({
-  scopes: ['email', 'profile'],
-  // Set your iOS client ID from Google Cloud Console
-  iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
-});
 
 type Mode = 'login' | 'signup';
 
@@ -34,9 +27,11 @@ export default function AuthScreen() {
   async function handleAppleSignIn() {
     try {
       setLoading(true);
-      const credential = await appleAuth.performRequest({
-        requestedOperation: appleAuth.Operation.LOGIN,
-        requestedScopes: [appleAuth.Scope.FULL_NAME, appleAuth.Scope.EMAIL],
+      const credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
       });
 
       if (!credential.identityToken) throw new Error('No identity token returned');
@@ -49,30 +44,9 @@ export default function AuthScreen() {
       if (error) throw error;
       router.back();
     } catch (e: any) {
-      if (e.code !== appleAuth.Error.CANCELED) {
+      if (e.code !== 'ERR_REQUEST_CANCELED') {
         Alert.alert('Apple Sign-In failed', e.message);
       }
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function handleGoogleSignIn() {
-    try {
-      setLoading(true);
-      await GoogleSignin.hasPlayServices();
-      const userInfo = await GoogleSignin.signIn();
-      const tokens = await GoogleSignin.getTokens();
-
-      const { error } = await supabase.auth.signInWithIdToken({
-        provider: 'google',
-        token: tokens.idToken,
-      });
-
-      if (error) throw error;
-      router.back();
-    } catch (e: any) {
-      Alert.alert('Google Sign-In failed', e.message);
     } finally {
       setLoading(false);
     }
@@ -119,12 +93,6 @@ export default function AuthScreen() {
       <Pressable style={[styles.btn, styles.appleBtn]} onPress={handleAppleSignIn} disabled={loading}>
         <MaterialIcons name="apple" size={20} color="#fff" />
         <Text style={[styles.btnText, { color: '#fff' }]}>Continue with Apple</Text>
-      </Pressable>
-
-      {/* Google Sign-In */}
-      <Pressable style={[styles.btn, styles.googleBtn]} onPress={handleGoogleSignIn} disabled={loading}>
-        <Text style={styles.googleG}>G</Text>
-        <Text style={styles.btnText}>Continue with Google</Text>
       </Pressable>
 
       <View style={styles.divider}>
@@ -209,10 +177,8 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   appleBtn: { backgroundColor: '#000' },
-  googleBtn: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#ddd' },
   emailBtn: { backgroundColor: '#3B82F6' },
   btnText: { fontSize: 15, fontWeight: '600', color: '#111' },
-  googleG: { fontSize: 16, fontWeight: '700', color: '#4285F4' },
   divider: {
     flexDirection: 'row',
     alignItems: 'center',
