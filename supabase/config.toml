@@ -1,0 +1,11 @@
+project_id = "Eventi"
+
+# Gateway JWT verification rejects the project's new ES256 / sb_publishable keys
+# ("Unsupported JWT algorithm ES256"), so these functions authorize themselves:
+# - ingest-ticketmaster checks the x-cron-secret header (cron only)
+# - ingest-for-location is public but rate-limited per area + daily cap (ingest_log)
+[functions.ingest-ticketmaster]
+verify_jwt = false
+
+[functions.ingest-for-location]
+verify_jwt = false

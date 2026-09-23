@@ -83,7 +83,7 @@ An events aggregator app for iOS (targeting Apple App Store). Pulls events from 
 - PostGIS `st_point(lng, lat)` — longitude comes first
 - `expo-secure-store` used instead of AsyncStorage (new arch compatibility)
 - App radius: `SEARCH_RADIUS_M` in `constants/config.ts` — 50km in dev builds, 10km in release automatically
-- **Edge Function gateway rejects this project's keys** (`401 Unsupported JWT algorithm ES256`) — project uses new `sb_publishable_` keys / asymmetric JWTs. Cron ingest silently failed from 2026-04-06 (cron shows "succeeded"; check `net._http_response`). Fix pending: deploy with `verify_jwt = false` + in-function auth
+- **Edge Function gateway rejects this project's keys** (`401 Unsupported JWT algorithm ES256`) — project uses new `sb_publishable_` keys / asymmetric JWTs. Cron ingest silently failed 2026-04-06 → 2026-09-22 (cron shows "succeeded"; check `net._http_response`). Fixed: `verify_jwt = false` in `supabase/config.toml`; `ingest-ticketmaster` requires `x-cron-secret` (Vault `cron_secret` = function secret `CRON_SECRET`); `ingest-for-location` is public but rate-limited via `ingest_log`
 - Auth uses `expo-apple-authentication` (first-party) — NOT `@invertase/react-native-apple-authentication` or `@react-native-google-signin`, which caused `pod install` failures on SDK 54 + New Arch. Native `signInWithIdToken` flow into Supabase.
 - Apple Sign-In entitlement via `ios.usesAppleSignIn: true` + `ios.entitlements` in app.json (CNG prebuild applies it on EAS build)
 - Builds run via **EAS Build** (cloud) — local Xcode not installed (disk space). `eas build -p ios --profile development`. First build needs interactive Apple login (2FA) in a real terminal; after that, credentials are stored on EAS and builds run `--non-interactive`.
@@ -110,7 +110,6 @@ An events aggregator app for iOS (targeting Apple App Store). Pulls events from 
 - [x] EAS Build set up (project linked, dev build green on device)
 - [ ] Google Sign-In — deferred (removed to fix pod install; re-add later as focused effort)
 - [ ] Event filtering (category, date, price) — built, needs on-device verification
-- [ ] Ingestion broken since April (ES256 401) — see gotchas
 - [x] In-app privacy policy (`app/privacy.tsx`), account deletion, report/block (UGC)
 - [ ] App Store submission prep (host privacy policy URL, verify native Apple button, production build)
 

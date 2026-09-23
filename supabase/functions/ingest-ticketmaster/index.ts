@@ -3,6 +3,9 @@ import { createClient } from 'jsr:@supabase/supabase-js@2';
 const TM_API_KEY = Deno.env.get('TICKETMASTER_API_KEY')!;
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+// Shared secret sent by the pg_cron job (stored in Vault as 'cron_secret').
+// Gateway JWT verification is off (see supabase/config.toml), so this is the auth.
+const CRON_SECRET = Deno.env.get('CRON_SECRET');
 
 const LOCATIONS = [
   { name: 'Los Angeles',      lat: 34.0522, lng: -118.2437 },
@@ -108,7 +111,11 @@ function normalize(event: TmEvent) {
   };
 }
 
-Deno.serve(async () => {
+Deno.serve(async (req) => {
+  if (!CRON_SECRET || req.headers.get('x-cron-secret') !== CRON_SECRET) {
+    return new Response(JSON.stringify({ error: 'unauthorized' }), { status: 401 });
+  }
+
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
   let totalUpserted = 0;
 
