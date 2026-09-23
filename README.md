@@ -29,6 +29,9 @@ Environment variables live in `.env.local` (`EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PU
 supabase db push                                   # apply migrations in supabase/migrations
 supabase functions deploy ingest-for-location
 supabase functions deploy ingest-ticketmaster
+supabase functions deploy apple-token-exchange
+supabase functions deploy delete-account
+npm run build:privacy                              # regenerate docs/privacy.html
 ```
 
 See `CLAUDE.md` for architecture, API limits, and known gotchas.

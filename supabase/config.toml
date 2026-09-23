@@ -4,8 +4,15 @@ project_id = "Eventi"
 # ("Unsupported JWT algorithm ES256"), so these functions authorize themselves:
 # - ingest-ticketmaster checks the x-cron-secret header (cron only)
 # - ingest-for-location is public but rate-limited per area + daily cap (ingest_log)
+# - apple-token-exchange / delete-account validate the user's token via auth.getUser
 [functions.ingest-ticketmaster]
 verify_jwt = false
 
 [functions.ingest-for-location]
+verify_jwt = false
+
+[functions.apple-token-exchange]
+verify_jwt = false
+
+[functions.delete-account]
 verify_jwt = false

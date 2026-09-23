@@ -6,4 +6,5 @@ export const SEARCH_RADIUS_M = __DEV__ ? 50000 : 10000;
 // from Ticketmaster for this area (rate-limited server-side).
 export const SPARSE_THRESHOLD = 5;
 
-export const PRIVACY_CONTACT_EMAIL = 'lova@threeohfivestudios.com';
+// Public privacy policy (App Store Connect). Source: constants/privacy-policy.json
+export const PRIVACY_POLICY_URL = 'https://threeohfivestudios.com/eventi/privacy';

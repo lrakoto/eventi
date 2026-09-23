@@ -48,12 +48,13 @@ function TopNav() {
   function confirmDeleteAccount() {
     Alert.alert(
       'Delete account?',
-      'This permanently deletes your account, the events you created, and your saved events. This cannot be undone.',
+      'This permanently deletes your account, the events you created, and your saved events, and revokes Sign in with Apple. This cannot be undone.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Delete', style: 'destructive', onPress: async () => {
-            const { error } = await supabase.rpc('delete_my_account');
+            // Edge Function revokes Sign in with Apple before deleting the user
+            const { error } = await supabase.functions.invoke('delete-account');
             if (error) {
               Alert.alert('Could not delete account', error.message);
               return;
@@ -168,7 +169,6 @@ export default function RootLayout() {
         <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
           <Stack>
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-            <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
             <Stack.Screen name="auth" options={{ presentation: 'modal', headerShown: false }} />
             <Stack.Screen name="add-event" options={{ presentation: 'modal', headerShown: false }} />
             <Stack.Screen name="privacy" options={{ presentation: 'modal', title: 'Privacy Policy' }} />

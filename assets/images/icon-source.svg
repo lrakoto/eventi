@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FF7A45"/>
+      <stop offset="0.55" stop-color="#F0386B"/>
+      <stop offset="1" stop-color="#8E2DE2"/>
+    </linearGradient>
+    <linearGradient id="dot" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FF7A45"/>
+      <stop offset="1" stop-color="#C2338F"/>
+    </linearGradient>
+  </defs>
+  <rect width="1024" height="1024" fill="url(#bg)"/>
+  <!-- faint street grid -->
+  <g stroke="#ffffff" stroke-opacity="0.12" stroke-width="14" fill="none">
+    <path d="M-40 300 L1064 180"/>
+    <path d="M-40 760 L1064 620"/>
+    <path d="M250 -40 L380 1064"/>
+    <path d="M760 -40 L700 1064"/>
+  </g>
+  <!-- pin shadow -->
+  <ellipse cx="512" cy="842" rx="120" ry="26" fill="#000" fill-opacity="0.18"/>
+  <!-- map pin -->
+  <path d="M512 176c-150 0-262 112-262 258 0 190 262 404 262 404s262-214 262-404c0-146-112-258-262-258z" fill="#ffffff"/>
+  <!-- sparkle (event) inside pin -->
+  <path d="M512 322 L540 404 L622 432 L540 460 L512 542 L484 460 L402 432 L484 404 Z" fill="url(#dot)"/>
+</svg>

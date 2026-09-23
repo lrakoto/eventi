@@ -47,6 +47,17 @@ export default function AuthScreen() {
       });
 
       if (error) throw error;
+
+      // Store Apple's refresh token server-side so account deletion can revoke it.
+      // The code expires in 5 minutes; fire-and-forget so sign-in isn't slowed down.
+      if (credential.authorizationCode) {
+        supabase.functions
+          .invoke('apple-token-exchange', { body: { authorizationCode: credential.authorizationCode } })
+          .then(({ error: fnError }) => {
+            if (fnError) console.error('apple-token-exchange error:', fnError.message);
+          });
+      }
+
       router.back();
     } catch (e: any) {
       if (e.code !== 'ERR_REQUEST_CANCELED') {

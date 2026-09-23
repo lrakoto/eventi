@@ -157,6 +157,6 @@ Deno.serve(async (req) => {
     }
   }
 
-  console.log(`Ingested ${rows.length} events for (${lat},${lng})`);
+  console.log(`Ingested ${rows.length} events for cell ${cell}`);
   return new Response(JSON.stringify({ ok: true, upserted: rows.length }));
 });
