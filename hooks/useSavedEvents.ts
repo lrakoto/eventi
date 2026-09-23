@@ -23,14 +23,18 @@ export function useSavedEvents() {
     if (!session) return false;
 
     if (savedIds.has(eventId)) {
-      await supabase.from('saved_events').delete().eq('event_id', eventId);
+      const { error } = await supabase.from('saved_events').delete().eq('event_id', eventId);
+      if (error) { console.error('unsave failed:', error.message); return false; }
       setSavedIds((prev) => {
         const next = new Set(prev);
         next.delete(eventId);
         return next;
       });
     } else {
-      await supabase.from('saved_events').insert({ event_id: eventId });
+      const { error } = await supabase
+        .from('saved_events')
+        .insert({ event_id: eventId, user_id: session.user.id });
+      if (error) { console.error('save failed:', error.message); return false; }
       setSavedIds((prev) => new Set([...prev, eventId]));
     }
     return true;

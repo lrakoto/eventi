@@ -14,7 +14,7 @@ import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import { FilterProvider } from '@/lib/FilterContext';
 import EventBottomSheet from '@/components/EventBottomSheet';
 import PersistentListSheet from '@/components/PersistentListSheet';
-import { useNearbyEvents } from '@/hooks/useNearbyEvents';
+import { EventsProvider, useNearbyEvents } from '@/lib/EventsContext';
 import { SHEET_HEIGHT } from '@/constants/layout';
 import { supabase } from '@/lib/supabase';
 
@@ -26,10 +26,18 @@ function TopNav() {
   const router = useRouter();
   const { session } = useAuth();
 
+  function handleMenuPress() {
+    Alert.alert('Eventi', undefined, [
+      { text: 'Privacy Policy', onPress: () => router.push('/privacy') },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
+  }
+
   function handleAccountPress() {
     if (session) {
       Alert.alert('Account', session.user.email ?? 'Signed in', [
-        { text: 'Sign out', style: 'destructive', onPress: () => supabase.auth.signOut() },
+        { text: 'Sign out', onPress: () => supabase.auth.signOut() },
+        { text: 'Delete account', style: 'destructive', onPress: confirmDeleteAccount },
         { text: 'Cancel', style: 'cancel' },
       ]);
     } else {
@@ -37,10 +45,31 @@ function TopNav() {
     }
   }
 
+  function confirmDeleteAccount() {
+    Alert.alert(
+      'Delete account?',
+      'This permanently deletes your account, the events you created, and your saved events. This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete', style: 'destructive', onPress: async () => {
+            const { error } = await supabase.rpc('delete_my_account');
+            if (error) {
+              Alert.alert('Could not delete account', error.message);
+              return;
+            }
+            await supabase.auth.signOut();
+            Alert.alert('Account deleted', 'Your account and data have been removed.');
+          },
+        },
+      ],
+    );
+  }
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.nav}>
-        <Pressable style={styles.iconBtn} onPress={() => alert('Menu coming soon')}>
+        <Pressable style={styles.iconBtn} onPress={handleMenuPress}>
           <MaterialIcons name="menu" size={26} color="#111" />
         </Pressable>
         <Text style={styles.appName}>Eventi</Text>
@@ -132,6 +161,7 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={styles.root}>
       <AuthProvider>
+      <EventsProvider>
       <FilterProvider>
       <EventSheetProvider>
         {inTabs && <TopNav />}
@@ -141,12 +171,14 @@ export default function RootLayout() {
             <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
             <Stack.Screen name="auth" options={{ presentation: 'modal', headerShown: false }} />
             <Stack.Screen name="add-event" options={{ presentation: 'modal', headerShown: false }} />
+            <Stack.Screen name="privacy" options={{ presentation: 'modal', title: 'Privacy Policy' }} />
           </Stack>
           <StatusBar style="auto" />
         </ThemeProvider>
         <Portals />
       </EventSheetProvider>
       </FilterProvider>
+      </EventsProvider>
       </AuthProvider>
     </GestureHandlerRootView>
   );

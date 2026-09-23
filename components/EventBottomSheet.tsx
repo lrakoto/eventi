@@ -8,6 +8,7 @@ import { SHEET_HEIGHT } from '@/constants/layout';
 import { useAuth } from '@/lib/AuthContext';
 import { useSavedEvents } from '@/hooks/useSavedEvents';
 import { supabase } from '@/lib/supabase';
+import { useNearbyEvents } from '@/lib/EventsContext';
 
 export type EventSummary = {
   id: string;
@@ -118,6 +119,7 @@ function openDirections(address: string | null, venueName: string | null) {
 export default function EventBottomSheet({ event, onClose, onDeleted }: Props) {
   const { session } = useAuth();
   const { savedIds, toggle } = useSavedEvents();
+  const { refresh } = useNearbyEvents();
   const router = useRouter();
 
   if (!event) return null;
@@ -125,6 +127,7 @@ export default function EventBottomSheet({ event, onClose, onDeleted }: Props) {
   const price = formatPrice(event.price_min, event.price_max, event.currency);
   const hasDir = !!(event.address || event.venue_name);
   const isOwner = !!session && event.created_by === session.user.id;
+  const isOtherUsersEvent = !!event.created_by && !isOwner;
   const isSaved = savedIds.has(event.id);
 
   async function handleSave() {
@@ -144,12 +147,47 @@ export default function EventBottomSheet({ event, onClose, onDeleted }: Props) {
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Delete', style: 'destructive', onPress: async () => {
-          await supabase.from('events').delete().eq('id', event!.id);
+          const { error } = await supabase.from('events').delete().eq('id', event!.id);
+          if (error) { Alert.alert('Could not delete event', error.message); return; }
           onClose();
           onDeleted?.();
+          refresh();
         },
       },
     ]);
+  }
+
+  function handleModerate() {
+    if (!session) {
+      router.push('/auth');
+      return;
+    }
+    Alert.alert('Report or block', 'Report this event if it is inappropriate, spam, or misleading.', [
+      { text: 'Report event', onPress: reportEvent },
+      { text: 'Block this user', style: 'destructive', onPress: blockUser },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
+  }
+
+  async function reportEvent() {
+    const { error } = await supabase
+      .from('event_reports')
+      .insert({ event_id: event!.id, reporter_id: session!.user.id });
+    // 23505 = already reported; treat as success
+    if (error && error.code !== '23505') { Alert.alert('Could not report event', error.message); return; }
+    Alert.alert('Thanks for reporting', "We'll review this event. It's now hidden for you.");
+    onClose();
+    refresh();
+  }
+
+  async function blockUser() {
+    const { error } = await supabase
+      .from('blocked_users')
+      .insert({ blocker_id: session!.user.id, blocked_id: event!.created_by });
+    if (error && error.code !== '23505') { Alert.alert('Could not block user', error.message); return; }
+    Alert.alert('User blocked', "You won't see events from this user anymore.");
+    onClose();
+    refresh();
   }
 
   return (
@@ -195,6 +233,11 @@ export default function EventBottomSheet({ event, onClose, onDeleted }: Props) {
                 <MaterialIcons name="delete-outline" size={20} color="#e53e3e" />
               </Pressable>
             </View>
+          )}
+          {isOtherUsersEvent && (
+            <Pressable onPress={handleModerate} hitSlop={8} style={styles.ownerActions}>
+              <MaterialIcons name="flag" size={20} color="#888" />
+            </Pressable>
           )}
         </View>
 

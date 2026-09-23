@@ -36,17 +36,26 @@ An events aggregator app for iOS (targeting Apple App Store). Pulls events from 
 /components           -- shared UI components
 /lib
   supabase.ts         -- Supabase client (uses expo-secure-store)
+  EventsContext.tsx   -- single shared source of location + nearby events (useNearbyEvents)
+  FilterContext.tsx   -- global category/date/price filters
+/constants/config.ts  -- search radius (__DEV__ 50km / release 10km), contact email
 /supabase
   /functions
     /ingest-ticketmaster  -- Edge Function: Ticketmaster ingestion
   /migrations
     001_events.sql        -- events table + PostGIS + nearby_events()
+    002_user_events.sql   -- created_by, saved_events
+    003_hardening_moderation.sql -- live-schema sync, reports/blocks, delete_my_account, ingest_log
 ```
 
 ## Database
 - `events` table with PostGIS `geography(point)` location column
-- `nearby_events(lat, lng, radius_m, from_time)` RPC — returns events sorted by distance
-- RLS enabled with public read policy
+- `nearby_events(lat, lng, radius_m, from_time, max_results=300)` RPC — returns events sorted by distance; excludes `hidden`, events the caller reported, and events by users the caller blocked
+- RLS enabled with public read policy; users can only write `source='user'` rows, and can't update `hidden` (column-level grant)
+- Moderation: `event_reports` (3 reports → auto `hidden=true`), `blocked_users`
+- `delete_my_account()` RPC (security definer) — deletes the user's events + auth user (cascades saved/reports/blocks)
+- `ingest_log` — one row per ~11km cell; `ingest-for-location` fetches a cell at most every 6h, max 1000 cells/day
+- Always add schema changes as migrations — 003 re-synced the repo after dashboard-only edits drifted
 - Dedup via unique constraint on `(source, source_id)`
 
 ## API & Service Limits (always check before scaling)
@@ -73,7 +82,8 @@ An events aggregator app for iOS (targeting Apple App Store). Pulls events from 
 - `nearby_events()` returns `lat`/`lng` as separate columns (not GeoJSON)
 - PostGIS `st_point(lng, lat)` — longitude comes first
 - `expo-secure-store` used instead of AsyncStorage (new arch compatibility)
-- App radius: 50000m for testing, set back to 10000 for production
+- App radius: `SEARCH_RADIUS_M` in `constants/config.ts` — 50km in dev builds, 10km in release automatically
+- **Edge Function gateway rejects this project's keys** (`401 Unsupported JWT algorithm ES256`) — project uses new `sb_publishable_` keys / asymmetric JWTs. Cron ingest silently failed from 2026-04-06 (cron shows "succeeded"; check `net._http_response`). Fix pending: deploy with `verify_jwt = false` + in-function auth
 - Auth uses `expo-apple-authentication` (first-party) — NOT `@invertase/react-native-apple-authentication` or `@react-native-google-signin`, which caused `pod install` failures on SDK 54 + New Arch. Native `signInWithIdToken` flow into Supabase.
 - Apple Sign-In entitlement via `ios.usesAppleSignIn: true` + `ios.entitlements` in app.json (CNG prebuild applies it on EAS build)
 - Builds run via **EAS Build** (cloud) — local Xcode not installed (disk space). `eas build -p ios --profile development`. First build needs interactive Apple login (2FA) in a real terminal; after that, credentials are stored on EAS and builds run `--non-interactive`.
@@ -99,8 +109,10 @@ An events aggregator app for iOS (targeting Apple App Store). Pulls events from 
 - [x] User-created events (add-event screen, created_by + RLS) + saved events
 - [x] EAS Build set up (project linked, dev build green on device)
 - [ ] Google Sign-In — deferred (removed to fix pod install; re-add later as focused effort)
-- [ ] Event filtering (category, date, price)
-- [ ] App Store submission prep (privacy policy, native Apple button for HIG compliance, production build)
+- [ ] Event filtering (category, date, price) — built, needs on-device verification
+- [ ] Ingestion broken since April (ES256 401) — see gotchas
+- [x] In-app privacy policy (`app/privacy.tsx`), account deletion, report/block (UGC)
+- [ ] App Store submission prep (host privacy policy URL, verify native Apple button, production build)
 
 ## App Store Requirements
 - Apple Sign-In mandatory (offering social login)

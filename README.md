@@ -1,50 +1,57 @@
-# Welcome to your Expo app 👋
+# Eventi
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+A map-first events app for iOS. Eventi pulls events from multiple sources, normalizes them, and shows what's happening near you on Apple Maps.
 
-## Get started
+## Stack
 
-1. Install dependencies
+- **App:** Expo (React Native) + TypeScript, Expo Router, `react-native-maps` (MapKit)
+- **Backend:** Supabase: Postgres + PostGIS, Auth (Sign in with Apple + email), Edge Functions
+- **Ingestion:** Ticketmaster Discovery API via scheduled and on-demand Edge Functions
 
-   ```bash
-   npm install
-   ```
-
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+## Development
 
 ```bash
-npm run reset-project
+npm install
+npx expo start --dev-client          # add --tunnel if the phone can't reach Metro on LAN
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+The app runs as an EAS development build (not Expo Go):
 
-## Learn more
+```bash
+eas build -p ios --profile development
+```
 
-To learn more about developing your project with Expo, look at the following resources:
+Environment variables live in `.env.local` (`EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`).
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+## Backend
 
-## Join the community
+```bash
+supabase db push                                   # apply migrations in supabase/migrations
+supabase functions deploy ingest-for-location
+supabase functions deploy ingest-ticketmaster
+```
 
-Join our community of developers creating universal apps.
+See `CLAUDE.md` for architecture, API limits, and known gotchas.
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+## Credits
+
+Hi, I'm Lova Rakotomavonandrianina. I'm a creative living in Los Angeles, and I
+was born in Madagascar in 1990. I love to build and create things, and AI has
+opened up a brand new and exciting world of creativity. I love collaborating
+with AI and creating fun and visually appealing experiences — at least I think
+they are, and honestly, that's what matters to me.
+
+If you found any of this work interesting, helpful, amusing, or of note, feel
+free to leave a tip if you are authorized and willing.
+
+    preferred payment   USDC on Base
+    wallet              0x23178a649a868ff0b8280125982a0fb9e9016164
+    network             Base
+    chain id            8453
+    asset               native USDC
+
+I built this with the help of AI, and it would not have been possible without
+the convergence of both our strengths — and, ultimately, the unique output that
+both can "experience" in their own way.
+
+threeohfivestudios.com

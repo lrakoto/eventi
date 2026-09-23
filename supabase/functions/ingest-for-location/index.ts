@@ -6,7 +6,13 @@ const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
 const RADIUS = '25';
 const RADIUS_UNIT = 'miles';
-const STALE_HOURS = 6; // re-fetch if no events ingested for this area in 6 hours
+const STALE_HOURS = 6; // re-fetch an area at most once per 6 hours
+const DAILY_CELL_CAP = 1000; // max Ticketmaster calls/day from this function (TM limit: 5000/day)
+
+// ~11km grid cell, so nearby requests share one fetch
+function cellFor(lat: number, lng: number) {
+  return `${lat.toFixed(1)},${lng.toFixed(1)}`;
+}
 
 interface TmEvent {
   id: string;
@@ -75,30 +81,45 @@ function normalize(event: TmEvent) {
 }
 
 Deno.serve(async (req) => {
-  const { lat, lng } = await req.json();
+  const { lat, lng } = await req.json().catch(() => ({}));
 
-  if (!lat || !lng) {
-    return new Response(JSON.stringify({ error: 'lat and lng required' }), { status: 400 });
+  if (
+    typeof lat !== 'number' || typeof lng !== 'number' ||
+    Math.abs(lat) > 90 || Math.abs(lng) > 180
+  ) {
+    return new Response(JSON.stringify({ error: 'numeric lat and lng required' }), { status: 400 });
   }
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
-
-  // Check if we've recently ingested events for this area
+  const cell = cellFor(lat, lng);
   const staleThreshold = new Date(Date.now() - STALE_HOURS * 60 * 60 * 1000).toISOString();
-  const { data: recentEvents } = await supabase.rpc('nearby_events', {
-    lat,
-    lng,
-    radius_m: 5000, // 5km check radius
-  });
 
-  const hasRecentData = recentEvents?.some(
-    (e: { created_at: string }) => e.created_at > staleThreshold
-  );
+  // Skip if this cell was fetched recently
+  const { data: logRow } = await supabase
+    .from('ingest_log')
+    .select('last_run')
+    .eq('cell', cell)
+    .maybeSingle();
 
-  if (hasRecentData) {
-    console.log(`Area (${lat},${lng}) already has fresh data, skipping fetch`);
+  if (logRow && new Date(logRow.last_run) > new Date(staleThreshold)) {
+    console.log(`Cell ${cell} fetched recently, skipping`);
     return new Response(JSON.stringify({ ok: true, skipped: true, reason: 'fresh' }));
   }
+
+  // Global daily cap protects the Ticketmaster quota from runaway/abusive callers
+  const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const { count } = await supabase
+    .from('ingest_log')
+    .select('cell', { count: 'exact', head: true })
+    .gt('last_run', dayAgo);
+
+  if ((count ?? 0) >= DAILY_CELL_CAP) {
+    console.warn(`Daily cap reached (${count}), skipping cell ${cell}`);
+    return new Response(JSON.stringify({ ok: true, skipped: true, reason: 'daily_cap' }));
+  }
+
+  // Claim the cell before fetching so concurrent requests don't double-fetch
+  await supabase.from('ingest_log').upsert({ cell, last_run: new Date().toISOString() });
 
   // Fetch from Ticketmaster
   const now = new Date().toISOString().slice(0, 19) + 'Z';

@@ -9,7 +9,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { NearbyEvent, useNearbyEvents } from '@/hooks/useNearbyEvents';
+import { NearbyEvent, useNearbyEvents } from '@/lib/EventsContext';
 import { useEventSheet } from '@/lib/EventSheetContext';
 import { useFilters, applyFilters } from '@/lib/FilterContext';
 

@@ -1,7 +1,7 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { StyleSheet, View } from 'react-native';
 import { Marker } from 'react-native-maps';
-import { NearbyEvent } from '@/hooks/useNearbyEvents';
+import { NearbyEvent } from '@/lib/EventsContext';
 
 type Props = {
   event: NearbyEvent;

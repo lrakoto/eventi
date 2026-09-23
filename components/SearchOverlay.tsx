@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import Animated, { useSharedValue, withSpring, useAnimatedStyle } from 'react-native-reanimated';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { NearbyEvent } from '@/hooks/useNearbyEvents';
+import { NearbyEvent } from '@/lib/EventsContext';
 import { useEventSheet } from '@/lib/EventSheetContext';
 import { SHEET_HEIGHT } from '@/constants/layout';
 

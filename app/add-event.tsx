@@ -18,6 +18,7 @@ import * as Location from 'expo-location';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/AuthContext';
+import { useNearbyEvents } from '@/lib/EventsContext';
 
 const CATEGORIES = ['music', 'sports', 'arts', 'food', 'community', 'tech', 'outdoors', 'other'];
 
@@ -25,6 +26,7 @@ export default function AddEventScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id?: string }>();
   const { session } = useAuth();
+  const { refresh } = useNearbyEvents();
   const isEdit = !!id;
 
   const [title, setTitle] = useState('');
@@ -137,6 +139,7 @@ export default function AddEventScreen() {
         if (error) throw error;
       }
 
+      refresh();
       router.back();
     } catch (e: any) {
       Alert.alert('Error', e.message);

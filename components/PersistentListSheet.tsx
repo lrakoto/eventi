@@ -1,7 +1,7 @@
 import { Image } from 'expo-image';
 import { useMemo } from 'react';
 import { FlatList, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { NearbyEvent } from '@/hooks/useNearbyEvents';
+import { NearbyEvent } from '@/lib/EventsContext';
 import { useEventSheet } from '@/lib/EventSheetContext';
 import { useFilters, applyFilters, deriveCategories, DateFilter } from '@/lib/FilterContext';
 import { SHEET_HEIGHT } from '@/constants/layout';
