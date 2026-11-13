@@ -1,17 +1,17 @@
 import { Image } from 'expo-image';
 import { useMemo } from 'react';
-import { FlatList, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { NearbyEvent } from '@/lib/EventsContext';
+import { ActivityIndicator, FlatList, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { type NearbyEvent, useNearbyEvents } from '@/lib/EventsContext';
 import { useEventSheet } from '@/lib/EventSheetContext';
-import { useFilters, applyFilters, deriveCategories, DateFilter } from '@/lib/FilterContext';
+import { useFilters, applyFilters, deriveCategories, type DateFilter } from '@/lib/FilterContext';
+import { formatEventDate } from '@/lib/eventDates';
 import { SHEET_HEIGHT } from '@/constants/layout';
 
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString('en-US', {
-    weekday: 'short', month: 'short', day: 'numeric',
-    hour: 'numeric', minute: '2-digit',
-  });
-}
+const DATE_CHIPS: { label: string; value: DateFilter }[] = [
+  { label: 'Today', value: 'today' },
+  { label: 'This Weekend', value: 'weekend' },
+  { label: 'Next 7 Days', value: 'week' },
+];
 
 function formatPrice(min: number | null, max: number | null, currency: string) {
   if (min === 0 && (max === 0 || max === null)) return 'Free';
@@ -35,11 +35,10 @@ function distanceKm(lat1: number, lng1: number, lat2: number, lng2: number) {
 
 type Props = {
   events: NearbyEvent[];
-  userLat: number;
-  userLng: number;
 };
 
-export default function PersistentListSheet({ events, userLat, userLng }: Props) {
+export default function PersistentListSheet({ events }: Props) {
+  const { area, loading, errorMsg, refresh } = useNearbyEvents();
   const { openSheet } = useEventSheet();
   const { dateFilter, priceFilter, activeCategory, setDateFilter, setPriceFilter, setActiveCategory, isActive, reset } =
     useFilters();
@@ -47,24 +46,20 @@ export default function PersistentListSheet({ events, userLat, userLng }: Props)
   const categories = useMemo(() => deriveCategories(events), [events]);
 
   const filtered = useMemo(
-    () => applyFilters(events, { dateFilter, priceFilter, activeCategory }),
-    [events, dateFilter, priceFilter, activeCategory],
+    () => applyFilters(events, { dateFilter, priceFilter, activeCategory }, area.timeZone),
+    [events, dateFilter, priceFilter, activeCategory, area.timeZone],
   );
-
-  const DATE_CHIPS: { label: string; value: DateFilter }[] = [
-    { label: 'Today', value: 'today' },
-    { label: 'Weekend', value: 'weekend' },
-    { label: 'This Week', value: 'week' },
-  ];
 
   return (
     <View style={styles.sheet}>
       <View style={styles.handle} />
       <View style={styles.header}>
-        <Text style={styles.heading}>Nearby Events</Text>
-        <Text style={styles.count}>{filtered.length}</Text>
+        <Text style={styles.heading} accessibilityRole="header">
+          {area.kind === 'city' ? `${area.name} Events` : 'Nearby Events'}
+        </Text>
+        {(!loading && !errorMsg || filtered.length > 0) && <Text style={styles.count}>{filtered.length}</Text>}
         {isActive && (
-          <Pressable onPress={reset} hitSlop={8} style={styles.clearBtn}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Clear filters" onPress={reset} hitSlop={8} style={styles.clearBtn}>
             <Text style={styles.clearText}>Clear</Text>
           </Pressable>
         )}
@@ -82,6 +77,8 @@ export default function PersistentListSheet({ events, userLat, userLng }: Props)
           return (
             <Pressable
               key={chip.value}
+              accessibilityRole="button"
+              accessibilityState={{ selected: active }}
               style={[styles.chip, active && styles.chipActive]}
               onPress={() => setDateFilter(active ? 'all' : chip.value)}
             >
@@ -90,18 +87,28 @@ export default function PersistentListSheet({ events, userLat, userLng }: Props)
           );
         })}
 
-        <Pressable
-          style={[styles.chip, priceFilter === 'free' && styles.chipActive]}
-          onPress={() => setPriceFilter(priceFilter === 'free' ? 'any' : 'free')}
-        >
-          <Text style={[styles.chipText, priceFilter === 'free' && styles.chipTextActive]}>Free</Text>
-        </Pressable>
+        {(['free', 'paid'] as const).map((price) => {
+          const active = priceFilter === price;
+          return (
+            <Pressable
+              key={price}
+              accessibilityRole="button"
+              accessibilityState={{ selected: active }}
+              style={[styles.chip, active && styles.chipActive]}
+              onPress={() => setPriceFilter(active ? 'any' : price)}
+            >
+              <Text style={[styles.chipText, active && styles.chipTextActive]}>{price === 'free' ? 'Free' : 'Paid'}</Text>
+            </Pressable>
+          );
+        })}
 
         {categories.map((cat) => {
           const active = activeCategory === cat;
           return (
             <Pressable
               key={cat}
+              accessibilityRole="button"
+              accessibilityState={{ selected: active }}
               style={[styles.chip, active && styles.chipActive]}
               onPress={() => setActiveCategory(active ? null : cat)}
             >
@@ -113,12 +120,29 @@ export default function PersistentListSheet({ events, userLat, userLng }: Props)
         })}
       </ScrollView>
 
+      {errorMsg && (
+        <View style={styles.status}>
+          <Text accessibilityLiveRegion="polite" style={styles.statusText}>
+            {events.length > 0 ? 'Could not refresh events. Showing the last results.' : errorMsg}
+          </Text>
+          <Pressable accessibilityRole="button" onPress={() => void refresh()} hitSlop={8}>
+            <Text style={styles.retryText}>Try again</Text>
+          </Pressable>
+        </View>
+      )}
+      {loading && (
+        <View style={styles.status}>
+          <ActivityIndicator size="small" />
+          <Text accessibilityLiveRegion="polite" style={styles.statusText}>Loading events…</Text>
+        </View>
+      )}
+
       <FlatList
         data={filtered}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => {
-          const dist = distanceKm(userLat, userLng, item.lat, item.lng);
-          const distLabel = dist < 1 ? `${Math.round(dist * 1000)}m` : `${dist.toFixed(1)}km`;
+          const dist = distanceKm(area.latitude, area.longitude, item.lat, item.lng);
+          const distLabel = dist < 1 ? `${Math.round(dist * 1000)} m` : `${dist.toFixed(1)} km`;
           const price = formatPrice(item.price_min, item.price_max, item.currency);
 
           return (
@@ -130,12 +154,12 @@ export default function PersistentListSheet({ events, userLat, userLng }: Props)
               )}
               <View style={styles.rowContent}>
                 <Text style={styles.rowTitle} numberOfLines={1}>{item.title}</Text>
-                <Text style={styles.rowMeta} numberOfLines={1}>{formatDate(item.starts_at)}</Text>
+                <Text style={styles.rowMeta} numberOfLines={1}>{formatEventDate(item.starts_at, area.timeZone)}</Text>
                 {item.venue_name && (
                   <Text style={styles.rowMeta} numberOfLines={1}>{item.venue_name}</Text>
                 )}
                 <View style={styles.rowFooter}>
-                  <Text style={styles.rowDist}>{distLabel} away</Text>
+                  <Text style={styles.rowDist}>{distLabel} {area.kind === 'city' ? 'from city center' : 'away'}</Text>
                   {price && <Text style={styles.rowPrice}>{price}</Text>}
                 </View>
               </View>
@@ -146,7 +170,11 @@ export default function PersistentListSheet({ events, userLat, userLng }: Props)
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={
-          <Text style={styles.emptyText}>No events found nearby.</Text>
+          !loading && !errorMsg ? (
+            <Text style={styles.emptyText}>
+              {isActive && events.length > 0 ? 'No events match these filters.' : 'No upcoming events in this area.'}
+            </Text>
+          ) : null
         }
       />
     </View>
@@ -231,6 +259,19 @@ const styles = StyleSheet.create({
   chipTextActive: {
     color: '#fff',
   },
+  status: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginHorizontal: 12,
+    marginVertical: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 10,
+    backgroundColor: '#f4f4f5',
+  },
+  statusText: { flex: 1, fontSize: 13, color: '#444' },
+  retryText: { fontSize: 13, fontWeight: '600', color: '#2563EB' },
   listContent: {
     paddingHorizontal: 12,
     paddingBottom: 20,

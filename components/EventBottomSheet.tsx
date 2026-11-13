@@ -6,9 +6,9 @@ import { useRouter } from 'expo-router';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { SHEET_HEIGHT } from '@/constants/layout';
 import { useAuth } from '@/lib/AuthContext';
-import { useSavedEvents } from '@/hooks/useSavedEvents';
-import { supabase } from '@/lib/supabase';
 import { useNearbyEvents } from '@/lib/EventsContext';
+import { formatEventDate } from '@/lib/eventDates';
+import { useSavedEvents } from '@/hooks/useSavedEvents';
 
 export type EventSummary = {
   id: string;
@@ -22,21 +22,12 @@ export type EventSummary = {
   image_url: string | null;
   url: string | null;
   category: string | null;
-  created_by: string | null;
 };
 
 type Props = {
   event: EventSummary | null;
   onClose: () => void;
-  onDeleted?: () => void;
 };
-
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString('en-US', {
-    weekday: 'short', month: 'short', day: 'numeric',
-    hour: 'numeric', minute: '2-digit',
-  });
-}
 
 function formatPrice(min: number | null, max: number | null, currency: string) {
   if (min === 0 && (max === 0 || max === null)) return 'Free';
@@ -116,18 +107,16 @@ function openDirections(address: string | null, venueName: string | null) {
   Linking.openURL(`maps://maps.apple.com/?q=${query}`);
 }
 
-export default function EventBottomSheet({ event, onClose, onDeleted }: Props) {
+export default function EventBottomSheet({ event, onClose }: Props) {
   const { session } = useAuth();
+  const { area } = useNearbyEvents();
   const { savedIds, toggle } = useSavedEvents();
-  const { refresh } = useNearbyEvents();
   const router = useRouter();
 
   if (!event) return null;
 
   const price = formatPrice(event.price_min, event.price_max, event.currency);
   const hasDir = !!(event.address || event.venue_name);
-  const isOwner = !!session && event.created_by === session.user.id;
-  const isOtherUsersEvent = !!event.created_by && !isOwner;
   const isSaved = savedIds.has(event.id);
 
   async function handleSave() {
@@ -135,59 +124,9 @@ export default function EventBottomSheet({ event, onClose, onDeleted }: Props) {
       router.push('/auth');
       return;
     }
-    await toggle(event!.id);
-  }
-
-  function handleEdit() {
-    router.push({ pathname: '/add-event', params: { id: event!.id } });
-  }
-
-  function handleDelete() {
-    Alert.alert('Delete event', 'This will permanently remove your event.', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete', style: 'destructive', onPress: async () => {
-          const { error } = await supabase.from('events').delete().eq('id', event!.id);
-          if (error) { Alert.alert('Could not delete event', error.message); return; }
-          onClose();
-          onDeleted?.();
-          refresh();
-        },
-      },
-    ]);
-  }
-
-  function handleModerate() {
-    if (!session) {
-      router.push('/auth');
-      return;
+    if (!await toggle(event!.id)) {
+      Alert.alert('Could not update bookmark', 'Please try again.');
     }
-    Alert.alert('Report or block', 'Report this event if it is inappropriate, spam, or misleading.', [
-      { text: 'Report event', onPress: reportEvent },
-      { text: 'Block this user', style: 'destructive', onPress: blockUser },
-      { text: 'Cancel', style: 'cancel' },
-    ]);
-  }
-
-  async function reportEvent() {
-    const { error } = await supabase
-      .from('event_reports')
-      .insert({ event_id: event!.id, reporter_id: session!.user.id });
-    // 23505 = already reported; treat as success
-    if (error && error.code !== '23505') { Alert.alert('Could not report event', error.message); return; }
-    Alert.alert('Thanks for reporting', "We'll review this event. It's now hidden for you.");
-    onClose();
-    refresh();
-  }
-
-  async function blockUser() {
-    const { error } = await supabase
-      .from('blocked_users')
-      .insert({ blocker_id: session!.user.id, blocked_id: event!.created_by });
-    if (error && error.code !== '23505') { Alert.alert('Could not block user', error.message); return; }
-    Alert.alert('User blocked', "You won't see events from this user anymore.");
-    onClose();
-    refresh();
   }
 
   return (
@@ -205,7 +144,13 @@ export default function EventBottomSheet({ event, onClose, onDeleted }: Props) {
         </Pressable>
 
         {/* Save button */}
-        <Pressable onPress={handleSave} style={styles.saveBtn} hitSlop={12}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={isSaved ? 'Remove bookmark' : 'Bookmark event'}
+          onPress={handleSave}
+          style={styles.saveBtn}
+          hitSlop={12}
+        >
           <BlurView intensity={60} tint="dark" style={styles.blurView}>
             <MaterialIcons
               name={isSaved ? 'bookmark' : 'bookmark-outline'}
@@ -217,31 +162,10 @@ export default function EventBottomSheet({ event, onClose, onDeleted }: Props) {
       </View>
 
       <View style={styles.content}>
-        <View style={styles.titleRow}>
-          <View style={styles.titleCol}>
-            {event.category && (
-              <Text style={styles.category}>{event.category.toUpperCase()}</Text>
-            )}
-            <Text style={styles.title} numberOfLines={2}>{event.title}</Text>
-          </View>
-          {isOwner && (
-            <View style={styles.ownerActions}>
-              <Pressable onPress={handleEdit} hitSlop={8}>
-                <MaterialIcons name="edit" size={20} color="#555" />
-              </Pressable>
-              <Pressable onPress={handleDelete} hitSlop={8}>
-                <MaterialIcons name="delete-outline" size={20} color="#e53e3e" />
-              </Pressable>
-            </View>
-          )}
-          {isOtherUsersEvent && (
-            <Pressable onPress={handleModerate} hitSlop={8} style={styles.ownerActions}>
-              <MaterialIcons name="flag" size={20} color="#888" />
-            </Pressable>
-          )}
-        </View>
+        {event.category && <Text style={styles.category}>{event.category.toUpperCase()}</Text>}
+        <Text style={styles.title} numberOfLines={2}>{event.title}</Text>
 
-        <Text style={styles.meta}>{formatDate(event.starts_at)}</Text>
+        <Text style={styles.meta}>{formatEventDate(event.starts_at, area.timeZone)}</Text>
         {event.venue_name && <Text style={styles.meta}>{event.venue_name}</Text>}
         {event.address && (
           <Text style={styles.address} numberOfLines={1}>{event.address}</Text>
@@ -297,19 +221,6 @@ const styles = StyleSheet.create({
     height: 32,
     borderRadius: 16,
     overflow: 'hidden',
-  },
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 8,
-  },
-  titleCol: {
-    flex: 1,
-  },
-  ownerActions: {
-    flexDirection: 'row',
-    gap: 12,
-    paddingTop: 4,
   },
   blurView: {
     flex: 1,

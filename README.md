@@ -1,6 +1,6 @@
 # Eventi
 
-A map-first events app for iOS. Eventi pulls events from multiple sources, normalizes them, and shows what's happening near you on Apple Maps.
+A map-first events app for iPhone. Browse Ticketmaster listings in Los Angeles, New York, or Chicago, or use your location to discover nearby events on Apple Maps.
 
 ## Stack
 
@@ -21,7 +21,7 @@ The app runs as an EAS development build (not Expo Go):
 eas build -p ios --profile development
 ```
 
-Environment variables live in `.env.local` (`EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`).
+For local builds, set `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY` in `.env.local`. Preview and production use the same EAS `production` environment.
 
 ## Backend
 
@@ -34,7 +34,7 @@ supabase functions deploy delete-account
 npm run build:privacy                              # regenerate docs/privacy.html
 ```
 
-See `CLAUDE.md` for architecture, API limits, and known gotchas.
+Apply migrations before deploying the functions. See [the release checklist](docs/app-store-listing.md) for the store listing, privacy URL, and device checks.
 
 ## Credits
 

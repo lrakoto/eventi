@@ -6,13 +6,6 @@ const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
 const RADIUS = '25';
 const RADIUS_UNIT = 'miles';
-const STALE_HOURS = 6; // re-fetch an area at most once per 6 hours
-const DAILY_CELL_CAP = 1000; // max Ticketmaster calls/day from this function (TM limit: 5000/day)
-
-// ~11km grid cell, so nearby requests share one fetch
-function cellFor(lat: number, lng: number) {
-  return `${lat.toFixed(1)},${lng.toFixed(1)}`;
-}
 
 interface TmEvent {
   id: string;
@@ -45,7 +38,7 @@ function normalize(event: TmEvent) {
   const venue = event._embedded?.venues?.[0];
   const lat = venue?.location?.latitude ? parseFloat(venue.location.latitude) : null;
   const lng = venue?.location?.longitude ? parseFloat(venue.location.longitude) : null;
-  if (!lat || !lng) return null;
+  if (lat === null || lng === null || !Number.isFinite(lat) || !Number.isFinite(lng)) return null;
 
   const startsAt = event.dates.start.dateTime
     ?? `${event.dates.start.localDate}T${event.dates.start.localTime ?? '00:00:00'}`;
@@ -81,51 +74,41 @@ function normalize(event: TmEvent) {
 }
 
 Deno.serve(async (req) => {
-  const { lat, lng } = await req.json().catch(() => ({}));
+  if (req.method !== 'POST') {
+    return Response.json({ error: 'method not allowed' }, { status: 405 });
+  }
+
+  const body = await req.json().catch(() => null);
+  const { lat, lng } = body ?? {};
 
   if (
     typeof lat !== 'number' || typeof lng !== 'number' ||
+    !Number.isFinite(lat) || !Number.isFinite(lng) ||
     Math.abs(lat) > 90 || Math.abs(lng) > 180
   ) {
-    return new Response(JSON.stringify({ error: 'numeric lat and lng required' }), { status: 400 });
+    return Response.json({ error: 'numeric lat and lng required' }, { status: 400 });
   }
 
+  // Send only the center of the 0.1° grid cell to Ticketmaster.
+  // Convert through Number so coordinates that round to zero use the same cell.
+  const cellLat = Number(lat.toFixed(1)).toFixed(1);
+  const cellLng = Number(lng.toFixed(1)).toFixed(1);
+  const cell = `${cellLat},${cellLng}`;
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
-  const cell = cellFor(lat, lng);
-  const staleThreshold = new Date(Date.now() - STALE_HOURS * 60 * 60 * 1000).toISOString();
-
-  // Skip if this cell was fetched recently
-  const { data: logRow } = await supabase
-    .from('ingest_log')
-    .select('last_run')
-    .eq('cell', cell)
-    .maybeSingle();
-
-  if (logRow && new Date(logRow.last_run) > new Date(staleThreshold)) {
-    console.log(`Cell ${cell} fetched recently, skipping`);
-    return new Response(JSON.stringify({ ok: true, skipped: true, reason: 'fresh' }));
+  const { data: claim, error: claimError } = await supabase.rpc('claim_location_ingest', { cell_id: cell });
+  if (claimError || !claim) {
+    console.error('On-demand ingest claim failed:', claimError?.code);
+    return Response.json({ error: 'Could not start ingestion' }, { status: 503 });
   }
-
-  // Global daily cap protects the Ticketmaster quota from runaway/abusive callers
-  const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-  const { count } = await supabase
-    .from('ingest_log')
-    .select('cell', { count: 'exact', head: true })
-    .gt('last_run', dayAgo);
-
-  if ((count ?? 0) >= DAILY_CELL_CAP) {
-    console.warn(`Daily cap reached (${count}), skipping cell ${cell}`);
-    return new Response(JSON.stringify({ ok: true, skipped: true, reason: 'daily_cap' }));
+  if (claim !== 'claimed') {
+    return Response.json({ ok: true, skipped: true, reason: claim });
   }
-
-  // Claim the cell before fetching so concurrent requests don't double-fetch
-  await supabase.from('ingest_log').upsert({ cell, last_run: new Date().toISOString() });
 
   // Fetch from Ticketmaster
   const now = new Date().toISOString().slice(0, 19) + 'Z';
   const params = new URLSearchParams({
     apikey: TM_API_KEY,
-    latlong: `${lat},${lng}`,
+    latlong: cell,
     radius: RADIUS,
     unit: RADIUS_UNIT,
     size: '50',
@@ -133,18 +116,24 @@ Deno.serve(async (req) => {
     startDateTime: now,
   });
 
-  const res = await fetch(
-    `https://app.ticketmaster.com/discovery/v2/events.json?${params}`
-  );
-
-  if (!res.ok) {
-    console.error(`Ticketmaster API error: ${res.status}`);
-    return new Response(JSON.stringify({ error: 'Ticketmaster API error' }), { status: 502 });
+  let tmEvents: TmEvent[];
+  try {
+    const res = await fetch(
+      `https://app.ticketmaster.com/discovery/v2/events.json?${params}`,
+      { signal: AbortSignal.timeout(10000) },
+    );
+    if (!res.ok) {
+      console.error('Ticketmaster API error:', res.status);
+      return Response.json({ error: 'Ticketmaster API error' }, { status: 502 });
+    }
+    const json = await res.json();
+    tmEvents = json._embedded?.events ?? [];
+  } catch {
+    console.error('Ticketmaster request failed');
+    return Response.json({ error: 'Ticketmaster request failed' }, { status: 502 });
   }
 
-  const json = await res.json();
-  const tmEvents: TmEvent[] = json._embedded?.events ?? [];
-  const rows = tmEvents.map(normalize).filter(Boolean);
+  const rows = tmEvents.map(normalize).filter((row) => row !== null);
 
   if (rows.length > 0) {
     const { error } = await supabase
@@ -152,11 +141,16 @@ Deno.serve(async (req) => {
       .upsert(rows, { onConflict: 'source,source_id' });
 
     if (error) {
-      console.error('Upsert error:', error.message);
-      return new Response(JSON.stringify({ error: error.message }), { status: 500 });
+      console.error('On-demand event upsert failed:', error.code);
+      return Response.json({ error: 'Could not save events' }, { status: 500 });
     }
   }
 
-  console.log(`Ingested ${rows.length} events for cell ${cell}`);
-  return new Response(JSON.stringify({ ok: true, upserted: rows.length }));
+  const { error: cacheError } = await supabase
+    .from('ingest_log')
+    .upsert({ cell, last_run: new Date().toISOString() });
+  if (cacheError) console.error('On-demand ingest cache update failed:', cacheError.code);
+
+  console.log(`On-demand ingest saved ${rows.length} events`);
+  return Response.json({ ok: true, upserted: rows.length });
 });

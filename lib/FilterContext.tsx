@@ -26,29 +26,53 @@ function isFree(e: FilterableEvent): boolean {
   return e.price_min === 0 && (e.price_max === 0 || e.price_max === null);
 }
 
-function matchesDate(starts_at: string, filter: DateFilter): boolean {
-  if (filter === 'all') return true;
-  const now = new Date();
-  const date = new Date(starts_at);
-  if (filter === 'today') return date.toDateString() === now.toDateString();
+function isPaid(e: FilterableEvent): boolean {
+  return (e.price_min ?? 0) > 0 || (e.price_max ?? 0) > 0;
+}
+
+function dateMatcher(filter: DateFilter, timeZone?: string): (iso: string) => boolean {
+  if (filter === 'all') return () => true;
+
+  const now = Date.now();
   if (filter === 'week') {
-    const weekOut = new Date(now);
-    weekOut.setDate(now.getDate() + 7);
-    return date >= now && date <= weekOut;
+    const weekOut = now + 7 * 24 * 60 * 60 * 1000;
+    return (iso) => Date.parse(iso) >= now && Date.parse(iso) <= weekOut;
   }
-  if (filter === 'weekend') {
-    const day = date.getDay();
-    return (day === 6 || day === 0) && date >= now;
+
+  const calendar = new Intl.DateTimeFormat('en-US', {
+    year: 'numeric', month: 'numeric', day: 'numeric', timeZone,
+  });
+  // Represent each city's calendar date as UTC midnight for date arithmetic across DST.
+  function calendarDay(timestamp: number): Date {
+    const parts = calendar.formatToParts(timestamp);
+    return new Date(Date.UTC(
+      Number(parts.find((part) => part.type === 'year')?.value),
+      Number(parts.find((part) => part.type === 'month')?.value) - 1,
+      Number(parts.find((part) => part.type === 'day')?.value),
+    ));
   }
-  return true;
+
+  const start = calendarDay(now);
+  const day = start.getUTCDay();
+  if (filter === 'weekend' && day !== 0) start.setUTCDate(start.getUTCDate() + 6 - day);
+  const end = new Date(start);
+  end.setUTCDate(start.getUTCDate() + (filter === 'weekend' && day !== 0 ? 2 : 1));
+
+  return (iso) => {
+    const time = Date.parse(iso);
+    if (!Number.isFinite(time) || time < now) return false;
+    const date = calendarDay(time);
+    return date >= start && date < end;
+  };
 }
 
 /** Pure helper — apply the active filters to any list of events. */
-export function applyFilters<T extends FilterableEvent>(events: T[], f: EventFilters): T[] {
+export function applyFilters<T extends FilterableEvent>(events: T[], f: EventFilters, timeZone?: string): T[] {
+  const matchesDate = dateMatcher(f.dateFilter, timeZone);
   return events.filter((e) => {
-    if (!matchesDate(e.starts_at, f.dateFilter)) return false;
+    if (!matchesDate(e.starts_at)) return false;
     if (f.priceFilter === 'free' && !isFree(e)) return false;
-    if (f.priceFilter === 'paid' && isFree(e)) return false;
+    if (f.priceFilter === 'paid' && !isPaid(e)) return false;
     if (f.activeCategory && topCategory(e.category) !== f.activeCategory) return false;
     return true;
   });

@@ -18,7 +18,7 @@
         ]
       },
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "Eventi uses your location to show nearby events on the map.",
+        "NSLocationWhenInUseUsageDescription": "When you choose Use My Location, Eventi uses your location to show nearby events on the map.",
         "ITSAppUsesNonExemptEncryption": false
       }
     },

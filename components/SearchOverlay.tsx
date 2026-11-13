@@ -14,21 +14,15 @@ import {
 } from 'react-native';
 import Animated, { useSharedValue, withSpring, useAnimatedStyle } from 'react-native-reanimated';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { NearbyEvent } from '@/lib/EventsContext';
+import { type NearbyEvent, useNearbyEvents } from '@/lib/EventsContext';
 import { useEventSheet } from '@/lib/EventSheetContext';
+import { formatEventDate } from '@/lib/eventDates';
 import { SHEET_HEIGHT } from '@/constants/layout';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 // Starting Y offset — positions overlay near where the pill lives
 const START_TRANSLATE_Y = SCREEN_HEIGHT - SHEET_HEIGHT - 80;
-
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString('en-US', {
-    weekday: 'short', month: 'short', day: 'numeric',
-    hour: 'numeric', minute: '2-digit',
-  });
-}
 
 function formatPrice(min: number | null, max: number | null, currency: string) {
   if (min === 0 && (max === 0 || max === null)) return 'Free';
@@ -48,6 +42,7 @@ type Props = {
 export default function SearchOverlay({ query, onChangeQuery, onClose, events }: Props) {
   const inputRef = useRef<TextInput>(null);
   const { openSheet } = useEventSheet();
+  const { area } = useNearbyEvents();
 
   const translateY = useSharedValue(START_TRANSLATE_Y);
   const animatedStyle = useAnimatedStyle(() => ({
@@ -59,7 +54,7 @@ export default function SearchOverlay({ query, onChangeQuery, onClose, events }:
     // Delay focus so keyboard doesn't fight the slide-up animation
     const t = setTimeout(() => inputRef.current?.focus(), 150);
     return () => clearTimeout(t);
-  }, []);
+  }, [translateY]);
 
   function handleSelect(event: NearbyEvent) {
     onClose();
@@ -80,14 +75,14 @@ export default function SearchOverlay({ query, onChangeQuery, onClose, events }:
               <TextInput
                 ref={inputRef}
                 style={styles.searchInput}
-                placeholder="Search events, venues, cities…"
+                placeholder="Search events or venues…"
                 placeholderTextColor="#999"
                 value={query}
                 onChangeText={onChangeQuery}
                 returnKeyType="search"
                 autoCorrect={false}
               />
-              <Pressable onPress={onClose} hitSlop={12}>
+              <Pressable accessibilityRole="button" accessibilityLabel="Close search" onPress={onClose} hitSlop={12}>
                 <MaterialIcons name="close" size={20} color="#999" />
               </Pressable>
             </View>
@@ -112,7 +107,7 @@ export default function SearchOverlay({ query, onChangeQuery, onClose, events }:
                   )}
                   <View style={styles.rowContent}>
                     <Text style={styles.rowTitle} numberOfLines={1}>{item.title}</Text>
-                    <Text style={styles.rowMeta} numberOfLines={1}>{formatDate(item.starts_at)}</Text>
+                    <Text style={styles.rowMeta} numberOfLines={1}>{formatEventDate(item.starts_at, area.timeZone)}</Text>
                     {item.venue_name && (
                       <Text style={styles.rowMeta} numberOfLines={1}>{item.venue_name}</Text>
                     )}

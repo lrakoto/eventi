@@ -26,15 +26,15 @@ export default function AuthScreen() {
   const [appleAvailable, setAppleAvailable] = useState(false);
 
   useEffect(() => {
-    AppleAuthentication.isAvailableAsync().then(setAppleAvailable);
+    AppleAuthentication.isAvailableAsync().then(setAppleAvailable).catch(() => setAppleAvailable(false));
   }, []);
 
   async function handleAppleSignIn() {
+    if (loading) return;
     try {
       setLoading(true);
       const credential = await AppleAuthentication.signInAsync({
         requestedScopes: [
-          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
           AppleAuthentication.AppleAuthenticationScope.EMAIL,
         ],
       });
@@ -48,14 +48,17 @@ export default function AuthScreen() {
 
       if (error) throw error;
 
-      // Store Apple's refresh token server-side so account deletion can revoke it.
-      // The code expires in 5 minutes; fire-and-forget so sign-in isn't slowed down.
+      // Exchange the short-lived code before leaving the sign-in screen.
       if (credential.authorizationCode) {
-        supabase.functions
-          .invoke('apple-token-exchange', { body: { authorizationCode: credential.authorizationCode } })
-          .then(({ error: fnError }) => {
-            if (fnError) console.error('apple-token-exchange error:', fnError.message);
+        try {
+          const { error: exchangeError } = await supabase.functions.invoke('apple-token-exchange', {
+            body: { authorizationCode: credential.authorizationCode },
+            timeout: 8_000,
           });
+          if (exchangeError) console.warn('Apple token exchange failed');
+        } catch {
+          console.warn('Apple token exchange failed');
+        }
       }
 
       router.back();
@@ -69,22 +72,25 @@ export default function AuthScreen() {
   }
 
   async function handleEmailAuth() {
-    if (!email || !password) {
+    if (loading) return;
+    const address = email.trim();
+    if (!address || !password) {
       Alert.alert('Please enter your email and password.');
       return;
     }
     try {
       setLoading(true);
-      const { error } =
+      const { data, error } =
         mode === 'login'
-          ? await supabase.auth.signInWithPassword({ email, password })
-          : await supabase.auth.signUp({ email, password });
+          ? await supabase.auth.signInWithPassword({ email: address, password })
+          : await supabase.auth.signUp({ email: address, password });
 
       if (error) throw error;
-      if (mode === 'signup') {
-        Alert.alert('Check your email', 'We sent you a confirmation link.');
-      } else {
+      if (data.session) {
         router.back();
+      } else if (mode === 'signup') {
+        Alert.alert('Check your email', 'Open the confirmation link, then return to Eventi and sign in.');
+        setMode('login');
       }
     } catch (e: any) {
       Alert.alert('Error', e.message);
@@ -103,7 +109,7 @@ export default function AuthScreen() {
       </Pressable>
 
       <Text style={styles.title}>Welcome to Eventi</Text>
-      <Text style={styles.subtitle}>Sign in to save events and share your own.</Text>
+      <Text style={styles.subtitle}>Sign in to bookmark events.</Text>
 
       {/* Apple Sign-In — Apple's official button (required for App Store HIG compliance) */}
       {appleAvailable && (

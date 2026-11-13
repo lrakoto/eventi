@@ -52,12 +52,12 @@ async function fetchTmEvents(lat: number, lng: number): Promise<TmEvent[]> {
   });
 
   const res = await fetch(
-    `https://app.ticketmaster.com/discovery/v2/events.json?${params}`
+    `https://app.ticketmaster.com/discovery/v2/events.json?${params}`,
+    { signal: AbortSignal.timeout(10000) },
   );
 
   if (!res.ok) {
-    console.error(`Ticketmaster API error: ${res.status} ${await res.text()}`);
-    return [];
+    throw new Error(`Ticketmaster API returned ${res.status}`);
   }
 
   const json = await res.json();
@@ -76,7 +76,7 @@ function normalize(event: TmEvent) {
   const lat = venue?.location?.latitude ? parseFloat(venue.location.latitude) : null;
   const lng = venue?.location?.longitude ? parseFloat(venue.location.longitude) : null;
 
-  if (!lat || !lng) return null;
+  if (lat === null || lng === null || !Number.isFinite(lat) || !Number.isFinite(lng)) return null;
 
   const startsAt = event.dates.start.dateTime
     ?? `${event.dates.start.localDate}T${event.dates.start.localTime ?? '00:00:00'}`;
@@ -118,27 +118,29 @@ Deno.serve(async (req) => {
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
   let totalUpserted = 0;
+  const failedCities: string[] = [];
 
   for (const city of LOCATIONS) {
-    const events = await fetchTmEvents(city.lat, city.lng);
-    const rows = events.map(normalize).filter(Boolean);
+    try {
+      const events = await fetchTmEvents(city.lat, city.lng);
+      const rows = events.map(normalize).filter((row) => row !== null);
+      if (rows.length === 0) continue;
 
-    if (rows.length === 0) continue;
+      const { error } = await supabase
+        .from('events')
+        .upsert(rows, { onConflict: 'source,source_id' });
+      if (error) throw new Error(`Event upsert failed (${error.code})`);
 
-    const { error } = await supabase
-      .from('events')
-      .upsert(rows, { onConflict: 'source,source_id' });
-
-    if (error) {
-      console.error(`Upsert error for ${city.name}:`, error.message);
-    } else {
       console.log(`${city.name}: upserted ${rows.length} events`);
       totalUpserted += rows.length;
+    } catch (error) {
+      failedCities.push(city.name);
+      console.error(`Scheduled ingest failed for ${city.name}:`, error instanceof Error ? error.message : 'unknown error');
     }
   }
 
-  return new Response(
-    JSON.stringify({ ok: true, upserted: totalUpserted }),
-    { headers: { 'Content-Type': 'application/json' } }
+  return Response.json(
+    { ok: failedCities.length === 0, upserted: totalUpserted, failedCities },
+    { status: failedCities.length ? 502 : 200 },
   );
 });

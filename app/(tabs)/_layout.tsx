@@ -7,7 +7,6 @@ export default function TabLayout() {
       screenOptions={{ headerShown: false }}
     >
       <Tabs.Screen name="index" />
-      <Tabs.Screen name="explore" />
     </Tabs>
   );
 }

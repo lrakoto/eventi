@@ -5,6 +5,3 @@ export const SEARCH_RADIUS_M = __DEV__ ? 50000 : 10000;
 // If fewer than this many events come back, ask the backend to fetch more
 // from Ticketmaster for this area (rate-limited server-side).
 export const SPARSE_THRESHOLD = 5;
-
-// Public privacy policy (App Store Connect). Source: constants/privacy-policy.json
-export const PRIVACY_POLICY_URL = 'https://threeohfivestudios.com/eventi/privacy';

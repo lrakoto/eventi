@@ -3,20 +3,27 @@ import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { Alert, Pressable, SafeAreaView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Linking, Pressable, SafeAreaView, StyleSheet, Text, View } from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import SearchOverlay from '@/components/SearchOverlay';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { EventSheetProvider, useEventSheet } from '@/lib/EventSheetContext';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
-import { FilterProvider } from '@/lib/FilterContext';
+import { applyFilters, FilterProvider, useFilters } from '@/lib/FilterContext';
 import EventBottomSheet from '@/components/EventBottomSheet';
 import PersistentListSheet from '@/components/PersistentListSheet';
 import { EventsProvider, useNearbyEvents } from '@/lib/EventsContext';
-import { SHEET_HEIGHT } from '@/constants/layout';
 import { supabase } from '@/lib/supabase';
+import { SHEET_HEIGHT } from '@/constants/layout';
+
+type DeleteAccountResult = {
+  ok: true;
+  appleRevocation?: 'revoked' | 'no_token' | 'failed' | 'not_applicable';
+};
+
+const APPLE_SIGN_IN_HELP_URL = 'https://support.apple.com/en-us/102571';
 
 export const unstable_settings = {
   anchor: '(tabs)',
@@ -25,6 +32,7 @@ export const unstable_settings = {
 function TopNav() {
   const router = useRouter();
   const { session } = useAuth();
+  const deletingAccount = useRef(false);
 
   function handleMenuPress() {
     Alert.alert('Eventi', undefined, [
@@ -34,6 +42,7 @@ function TopNav() {
   }
 
   function handleAccountPress() {
+    if (deletingAccount.current) return;
     if (session) {
       Alert.alert('Account', session.user.email ?? 'Signed in', [
         { text: 'Sign out', onPress: () => supabase.auth.signOut() },
@@ -46,21 +55,55 @@ function TopNav() {
   }
 
   function confirmDeleteAccount() {
+    const user = session?.user;
+    const usesApple = user?.app_metadata.provider === 'apple'
+      || user?.app_metadata.providers?.includes('apple')
+      || user?.identities?.some((identity) => identity.provider === 'apple');
+
     Alert.alert(
       'Delete account?',
-      'This permanently deletes your account, the events you created, and your saved events, and revokes Sign in with Apple. This cannot be undone.',
+      'This permanently deletes your Eventi account, saved events, and any past community posts. This cannot be undone.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Delete', style: 'destructive', onPress: async () => {
-            // Edge Function revokes Sign in with Apple before deleting the user
-            const { error } = await supabase.functions.invoke('delete-account');
-            if (error) {
-              Alert.alert('Could not delete account', error.message);
-              return;
+            if (deletingAccount.current) return;
+            deletingAccount.current = true;
+            try {
+              const { data, error } = await supabase.functions.invoke<DeleteAccountResult>('delete-account');
+              if (error || !data?.ok) {
+                Alert.alert('Could not confirm deletion', 'Please try again or contact support from the Privacy Policy.');
+                return;
+              }
+
+              const { error: signOutError } = await supabase.auth.signOut({ scope: 'local' })
+                .catch((error: unknown) => ({ error }));
+              if (signOutError) console.warn('Could not clear the local session after account deletion');
+
+              const needsAppleSteps = data.appleRevocation === 'no_token'
+                || data.appleRevocation === 'failed'
+                || (usesApple && !data.appleRevocation);
+              if (needsAppleSteps) {
+                Alert.alert(
+                  'Eventi account deleted',
+                  'To finish removing Apple access, open iPhone Settings, tap your name, then Sign in with Apple. Select Eventi and tap Delete.',
+                  [
+                    { text: 'Done', style: 'cancel' },
+                    { text: 'Apple instructions', onPress: () => {
+                      Linking.openURL(APPLE_SIGN_IN_HELP_URL).catch(() => {
+                        Alert.alert('Could not open Apple Support', 'You can follow the steps from iPhone Settings.');
+                      });
+                    } },
+                  ],
+                );
+              } else {
+                Alert.alert('Account deleted', 'Your Eventi account and data have been removed.');
+              }
+            } catch {
+              Alert.alert('Could not confirm deletion', 'Please try again or contact support from the Privacy Policy.');
+            } finally {
+              deletingAccount.current = false;
             }
-            await supabase.auth.signOut();
-            Alert.alert('Account deleted', 'Your account and data have been removed.');
           },
         },
       ],
@@ -70,11 +113,11 @@ function TopNav() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.nav}>
-        <Pressable style={styles.iconBtn} onPress={handleMenuPress}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Menu" style={styles.iconBtn} onPress={handleMenuPress}>
           <MaterialIcons name="menu" size={26} color="#111" />
         </Pressable>
         <Text style={styles.appName}>Eventi</Text>
-        <Pressable style={styles.iconBtn} onPress={handleAccountPress}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Account" style={styles.iconBtn} onPress={handleAccountPress}>
           <MaterialIcons name={session ? 'person' : 'person-outline'} size={26} color="#111" />
         </Pressable>
       </View>
@@ -84,52 +127,34 @@ function TopNav() {
 
 function Portals() {
   const { selectedEvent, closeSheet } = useEventSheet();
-  const { events, userLocation } = useNearbyEvents();
-  const { session } = useAuth();
-  const segments = useSegments();
-  const router = useRouter();
-  const onMapTab = segments[segments.length - 1] !== 'explore';
+  const { area, events } = useNearbyEvents();
+  const filters = useFilters();
   const [query, setQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
 
-  function handleAddEvent() {
-    if (!session) {
-      router.push('/auth');
-    } else {
-      router.push('/add-event');
-    }
-  }
-
-  const filteredEvents = query.trim()
+  const searchTerm = query.trim().toLowerCase();
+  const searchResults = searchTerm
     ? events.filter((e) =>
-        e.title.toLowerCase().includes(query.toLowerCase()) ||
-        (e.venue_name ?? '').toLowerCase().includes(query.toLowerCase()) ||
-        (e.address ?? '').toLowerCase().includes(query.toLowerCase())
+        e.title.toLowerCase().includes(searchTerm) ||
+        (e.venue_name ?? '').toLowerCase().includes(searchTerm) ||
+        (e.address ?? '').toLowerCase().includes(searchTerm)
       )
     : events;
 
-  const showSheet = onMapTab && !selectedEvent && userLocation;
-
   return (
     <>
-      {showSheet && (
-        <PersistentListSheet
-          events={filteredEvents}
-          userLat={userLocation.latitude}
-          userLng={userLocation.longitude}
-        />
-      )}
+      {!selectedEvent && <PersistentListSheet events={events} />}
       <EventBottomSheet event={selectedEvent} onClose={closeSheet} />
 
       {/* Floating pill search bar */}
-      {!isSearching && (
+      {!isSearching && !selectedEvent && events.length > 0 && (
         <Pressable
           style={styles.searchBar}
           onPress={() => setIsSearching(true)}
         >
           <MaterialIcons name="search" size={20} color="#999" style={styles.searchIcon} />
           <Text style={styles.searchPlaceholder}>
-            {query || 'Search events, venues, cities…'}
+            Search events or venues…
           </Text>
         </Pressable>
       )}
@@ -140,15 +165,8 @@ function Portals() {
           query={query}
           onChangeQuery={setQuery}
           onClose={() => { setIsSearching(false); setQuery(''); }}
-          events={filteredEvents}
+          events={applyFilters(searchResults, filters, area.timeZone)}
         />
-      )}
-
-      {/* Add Event FAB */}
-      {!isSearching && !selectedEvent && (
-        <Pressable style={styles.fab} onPress={handleAddEvent}>
-          <MaterialIcons name="add" size={28} color="#fff" />
-        </Pressable>
       )}
     </>
   );
@@ -170,12 +188,11 @@ export default function RootLayout() {
           <Stack>
             <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
             <Stack.Screen name="auth" options={{ presentation: 'modal', headerShown: false }} />
-            <Stack.Screen name="add-event" options={{ presentation: 'modal', headerShown: false }} />
             <Stack.Screen name="privacy" options={{ presentation: 'modal', title: 'Privacy Policy' }} />
           </Stack>
           <StatusBar style="auto" />
         </ThemeProvider>
-        <Portals />
+        {inTabs && <Portals />}
       </EventSheetProvider>
       </FilterProvider>
       </EventsProvider>
@@ -236,21 +253,5 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 15,
     color: '#999',
-  },
-  fab: {
-    position: 'absolute',
-    bottom: SHEET_HEIGHT + 70,
-    right: 20,
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: '#111',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-    elevation: 6,
   },
 });
