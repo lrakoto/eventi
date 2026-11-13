@@ -2,7 +2,7 @@ import { Linking, ScrollView, StyleSheet, Text } from 'react-native';
 import policy from '@/constants/privacy-policy.json';
 
 // Single source for the in-app screen and the hosted page
-// (npm run build:privacy → docs/privacy.html, uploaded to PRIVACY_POLICY_URL).
+// (npm run build:privacy → docs/privacy.html, deployed by GitHub Pages).
 export default function PrivacyScreen() {
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>

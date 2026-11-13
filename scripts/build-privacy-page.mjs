@@ -1,5 +1,5 @@
 // Renders constants/privacy-policy.json → docs/privacy.html for hosting at
-// https://threeohfivestudios.com/eventi/privacy (the App Store Connect privacy URL).
+// https://lrakoto.github.io/eventi/privacy/ (the App Store Connect privacy URL).
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 
 const policy = JSON.parse(readFileSync(new URL('../constants/privacy-policy.json', import.meta.url)));

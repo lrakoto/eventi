@@ -1,0 +1,49 @@
+name: Publish Eventi privacy policy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/eventi-privacy.yml
+      - constants/privacy-policy.json
+      - scripts/build-privacy-page.mjs
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: eventi-privacy-pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Generate privacy policy
+        run: |
+          node scripts/build-privacy-page.mjs
+          mkdir -p "$RUNNER_TEMP/eventi-privacy/privacy"
+          cp docs/privacy.html "$RUNNER_TEMP/eventi-privacy/index.html"
+          cp docs/privacy.html "$RUNNER_TEMP/eventi-privacy/privacy/index.html"
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: ${{ runner.temp }}/eventi-privacy
+
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/deploy-pages@v4
+        id: deployment

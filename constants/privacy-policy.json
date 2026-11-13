@@ -1,5 +1,5 @@
 {
-  "lastUpdated": "September 22, 2026",
+  "lastUpdated": "November 13, 2026",
   "contactEmail": "lova@threeohfivestudios.com",
   "sections": [
     {
@@ -8,31 +8,27 @@
     },
     {
       "heading": "Location",
-      "body": "With your permission, Eventi uses your device location while the app is open to find nearby events. Your coordinates are sent to our backend only to look up events in your area, and occasionally to fetch fresh listings for that area. We do not store your location history or link your location to your account. You can turn off location access at any time in iOS Settings."
+      "body": "You can choose a city without sharing your device location. If you select Use My Location and grant permission, Eventi sends your coordinates to its Supabase backend to show nearby events. To refresh listings in sparse areas, Eventi may send an approximate area to Ticketmaster and store that area and the request time to limit repeat requests. These records do not include your account ID and are cleared after their rate limit window expires and another refresh is requested. You can change location permissions in iOS Settings."
     },
     {
       "heading": "Account information",
-      "body": "You can browse without an account. If you sign in with Apple or email, we store your email address (or Apple's private relay address) and a user ID so you can save events and post your own. Passwords are handled by our authentication provider and are never visible to us. If you use Sign in with Apple, we also keep a token issued by Apple so that we can revoke Eventi's access to your Apple ID when you delete your account."
+      "body": "You can browse without an account. If you sign in with Apple or email, we store your email address (or Apple's private relay address), a user ID and your bookmarks. Supabase Auth handles passwords. When available, we store a token issued by Apple to revoke Eventi's access when you delete your account. Account information and bookmarks are kept until you delete them or close your account."
     },
     {
-      "heading": "Content you create",
-      "body": "Events you post (title, date, venue, address, description, price) are public and visible to other users. Events you save, reports you submit, and users you block are private to your account."
+      "heading": "Past community posts",
+      "body": "Community events submitted during development are retained privately. Account deletion removes these events, as well as any past reports or blocks associated with your account."
     },
     {
       "heading": "Event listings",
-      "body": "Many listings come from Ticketmaster. Tapping \"Get Tickets\" opens Ticketmaster's website, which is governed by its own privacy policy. Directions open in Apple Maps."
+      "body": "Listings come from Ticketmaster. Tapping \"Get Tickets\" opens Ticketmaster's website, which is governed by its own privacy policy. Directions open in Apple Maps."
     },
     {
       "heading": "Service providers",
       "body": "Eventi is hosted on Supabase (database, authentication, and server functions, located in the United States). Sign in with Apple is provided by Apple. These providers process data only to run the app."
     },
     {
-      "heading": "Moderation",
-      "body": "You can report events or block users from an event's detail sheet. Reported events are hidden for you immediately and reviewed; events reported by multiple users are removed from public view."
-    },
-    {
       "heading": "Deleting your data",
-      "body": "You can delete your account at any time from the account menu (person icon → Delete account). This permanently removes your account, the events you posted, your saved events, reports, and blocks, and revokes Eventi's Sign in with Apple access."
+      "body": "Open the account menu and tap Delete account to remove your Eventi account and associated data. If you signed in with Apple, Eventi attempts to revoke Apple access as part of deletion. If it cannot, you can remove Eventi under Settings → your name → Sign in with Apple."
     },
     {
       "heading": "Children",
