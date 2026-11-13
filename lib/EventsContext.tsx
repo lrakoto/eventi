@@ -1,7 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import * as Location from 'expo-location';
 import { supabase } from './supabase';
-import { useAuth } from './AuthContext';
 import type { EventSummary } from '@/components/EventBottomSheet';
 import { SEARCH_RADIUS_M, SPARSE_THRESHOLD } from '@/constants/config';
 
@@ -40,6 +39,8 @@ type EventsContextType = EventsResult & {
 };
 
 const DEFAULT_AREA = DISCOVERY_CITIES[0];
+const LOAD_ERROR = 'Could not load events.';
+const REFRESH_UNAVAILABLE = 'Event updates are temporarily unavailable.';
 const REQUEST_TIMEOUT_MS = 15_000;
 const LOCATION_TIMEOUT_MS = 8_000;
 const EventsContext = createContext<EventsContextType | null>(null);
@@ -49,7 +50,6 @@ function loadingResult(area: DiscoveryArea): EventsResult {
 }
 
 export function EventsProvider({ children }: { children: ReactNode }) {
-  const { session } = useAuth();
   const [area, setArea] = useState<DiscoveryArea>(DEFAULT_AREA);
   const [result, setResult] = useState<EventsResult>(() => loadingResult(DEFAULT_AREA));
   const [locating, setLocating] = useState(false);
@@ -121,19 +121,29 @@ export function EventsProvider({ children }: { children: ReactNode }) {
 
       // Keep a partial list visible while Ticketmaster fills in a sparse area.
       setResult({ area, events, loading: true, errorMsg: null });
-      const { error } = await supabase.functions.invoke('ingest-for-location', {
+      const { data: ingest, error } = await supabase.functions.invoke<{
+        skipped?: boolean;
+        reason?: string;
+        upserted?: number;
+      }>('ingest-for-location', {
         body: { lat: Number(area.latitude.toFixed(1)), lng: Number(area.longitude.toFixed(1)) },
         signal: controller.signal,
       });
       if (!isCurrent()) return;
       if (error) throw error;
 
-      const updatedEvents = await fetchFromDB(area, controller.signal);
-      if (isCurrent()) setResult({ area, events: updatedEvents, loading: false, errorMsg: null });
-    } catch (error) {
+      const updatedEvents = (ingest?.upserted ?? 0) > 0 || ingest?.reason === 'cooldown'
+        ? await fetchFromDB(area, controller.signal)
+        : events;
       if (!isCurrent()) return;
-      console.error('Could not load events:', error);
-      setResult((previous) => ({ ...previous, loading: false, errorMsg: 'Could not load events.' }));
+
+      // A concurrent request may still be running, and a quota skip says nothing about inventory.
+      const waitingForEvents = ingest?.reason === 'cooldown' && updatedEvents.length === 0;
+      const errorMsg = waitingForEvents || ingest?.reason === 'daily_cap' ? REFRESH_UNAVAILABLE : null;
+      setResult({ area, events: updatedEvents, loading: false, errorMsg });
+    } catch {
+      if (!isCurrent()) return;
+      setResult((previous) => ({ ...previous, loading: false, errorMsg: LOAD_ERROR }));
     } finally {
       clearTimeout(timeout);
       if (isCurrent()) activeRequest.current = null;
@@ -146,7 +156,7 @@ export function EventsProvider({ children }: { children: ReactNode }) {
       activeRequest.current?.abort();
       activeRequest.current = null;
     };
-  }, [refresh, session?.user.id]);
+  }, [refresh]);
 
   useEffect(() => () => { locationAttempt.current += 1; }, []);
 

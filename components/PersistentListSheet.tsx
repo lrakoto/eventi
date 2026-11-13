@@ -57,7 +57,7 @@ export default function PersistentListSheet({ events }: Props) {
         <Text style={styles.heading} accessibilityRole="header">
           {area.kind === 'city' ? `${area.name} Events` : 'Nearby Events'}
         </Text>
-        {(!loading && !errorMsg || filtered.length > 0) && <Text style={styles.count}>{filtered.length}</Text>}
+        {((!loading && !errorMsg) || filtered.length > 0) && <Text style={styles.count}>{filtered.length}</Text>}
         {isActive && (
           <Pressable accessibilityRole="button" accessibilityLabel="Clear filters" onPress={reset} hitSlop={8} style={styles.clearBtn}>
             <Text style={styles.clearText}>Clear</Text>
