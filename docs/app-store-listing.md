@@ -38,6 +38,7 @@ Tracking: **No** (no ads, no analytics SDKs, no data broker sharing)
 |---|---|---|---|
 | Contact Info → Email address | Yes (only if signed in) | Yes | App Functionality |
 | Identifiers → User ID | Yes (only if signed in) | Yes | App Functionality |
+| Usage Data → Product Interaction (bookmarks) | Yes (only if signed in) | Yes | App Functionality |
 | Location → Coarse Location | Yes | No | App Functionality |
 
 Device coordinates are used to answer nearby queries. Sparse-area refreshes retain only the approximate area and request time in EventAlly's application tables and send only the approximate area to Ticketmaster. Confirm production request logging and retention when finalizing the location disclosure. [Apple privacy details](https://developer.apple.com/app-store/app-privacy-details/)

@@ -4,8 +4,8 @@ import { createRemoteJWKSet, importPKCS8, jwtVerify, SignJWT } from 'npm:jose@5'
 const CLIENT_ID = 'com.lovarakoto.eventi';
 const TEAM_ID = Deno.env.get('APPLE_TEAM_ID')!;
 const KEY_ID = Deno.env.get('APPLE_KEY_ID')!;
-// .p8 contents; tolerate "\n"-escaped newlines from `supabase secrets set`
-const PRIVATE_KEY = (Deno.env.get('APPLE_PRIVATE_KEY') ?? '').replace(/\\n/g, '\n');
+// Accept original .p8 line breaks and escaped newlines in secret values.
+const PRIVATE_KEY = (Deno.env.get('APPLE_PRIVATE_KEY') ?? '').replace(/\\{1,2}n/g, '\n');
 const APPLE_ISSUER = 'https://appleid.apple.com';
 const APPLE_KEYS = createRemoteJWKSet(new URL(`${APPLE_ISSUER}/auth/keys`));
 
