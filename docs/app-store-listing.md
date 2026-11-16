@@ -1,19 +1,19 @@
-# App Store Connect — Eventi listing draft
+# App Store Connect — EventAlly listing draft
 
 ## App information
-- **Name** (30): Eventi — Events Near You
+- **Name** (30): EventAlly
 - **Subtitle** (30): Concerts & shows on a map
 - **Bundle ID:** com.lovarakoto.eventi
 - **Primary category:** Entertainment · **Secondary:** Lifestyle
 - **Privacy Policy URL:** https://lrakoto.github.io/eventi/privacy/
 - **Support URL:** https://lrakoto.github.io/eventi/support/
 
-Use `eventi-ios` for the SKU if a new app record is needed. Start with a free U.S. listing, where the three preset cities are supported. Select manual release so the approved version stays in App Store Connect until launch.
+Start with a free U.S. listing, where the three preset cities are supported. Select manual release so the approved version stays in App Store Connect until launch.
 
 ## Description (4000)
 Find nearby concerts, sports, theater, and comedy on one map.
 
-Open Eventi to explore Los Angeles, New York, or Chicago, or use your location to find nearby listings. Tap a pin for the date, venue, and available prices. Get directions in Apple Maps or open the ticket listing.
+Open EventAlly to explore Los Angeles, New York, or Chicago, or use your location to find nearby listings. Tap a pin for the date, venue, and available prices. Get directions in Apple Maps or open the ticket listing.
 
 • Browse on the map or in the nearby events list.
 • Filter by category, date, and free or paid admission.
@@ -40,11 +40,11 @@ Tracking: **No** (no ads, no analytics SDKs, no data broker sharing)
 | Identifiers → User ID | Yes (only if signed in) | Yes | App Functionality |
 | Location → Coarse Location | Yes | No | App Functionality |
 
-Device coordinates are used to answer nearby queries. Sparse-area refreshes retain only the approximate area and request time in Eventi's application tables and send only the approximate area to Ticketmaster. Confirm production request logging and retention when finalizing the location disclosure. [Apple privacy details](https://developer.apple.com/app-store/app-privacy-details/)
+Device coordinates are used to answer nearby queries. Sparse-area refreshes retain only the approximate area and request time in EventAlly's application tables and send only the approximate area to Ticketmaster. Confirm production request logging and retention when finalizing the location disclosure. [Apple privacy details](https://developer.apple.com/app-store/app-privacy-details/)
 
 ## Review notes (for the reviewer)
 
-Eventi opens to Los Angeles. You can browse as a guest, even if you deny location permission. Tap the area selector at the top left of the map to switch to New York or Chicago, or choose Use My Location. The map and event list share the same filters. Get Tickets opens the source listing for tickets to an in-person event, and Directions opens Apple Maps.
+EventAlly opens to Los Angeles. You can browse as a guest, even if you deny location permission. Tap the area selector at the top left of the map to switch to New York or Chicago, or choose Use My Location. The map and event list share the same filters. Get Tickets opens the source listing for tickets to an in-person event, and Directions opens Apple Maps.
 
 To test bookmarks, use the demo credentials in App Review Information. Open any event and tap the bookmark icon. Account deletion is available from the account icon at the top right. The demo account can be kept for review by using a separate account to test deletion.
 

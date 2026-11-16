@@ -15,7 +15,7 @@ const html = `<!doctype html>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Eventi Privacy Policy</title>
+  <title>EventAlly Privacy Policy</title>
   <style>
     :root { color-scheme: light dark; --fg: #111; --muted: #555; --bg: #fff; --accent: #F0386B; }
     @media (prefers-color-scheme: dark) { :root { --fg: #f2f2f2; --muted: #aaa; --bg: #111; } }
@@ -31,7 +31,7 @@ const html = `<!doctype html>
 </head>
 <body>
   <main>
-    <h1>Eventi Privacy Policy</h1>
+    <h1>EventAlly Privacy Policy</h1>
 ${sections}
     <h2>Contact</h2>
     <p>Questions or requests: <a href="mailto:${esc(policy.contactEmail)}">${esc(policy.contactEmail)}</a></p>

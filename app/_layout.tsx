@@ -35,7 +35,7 @@ function TopNav() {
   const deletingAccount = useRef(false);
 
   function handleMenuPress() {
-    Alert.alert('Eventi', undefined, [
+    Alert.alert('EventAlly', undefined, [
       { text: 'Privacy Policy', onPress: () => router.push('/privacy') },
       { text: 'Cancel', style: 'cancel' },
     ]);
@@ -62,7 +62,7 @@ function TopNav() {
 
     Alert.alert(
       'Delete account?',
-      'This permanently deletes your Eventi account, saved events, and any past community posts. This cannot be undone.',
+      'This permanently deletes your EventAlly account, saved events, and any past community posts. This cannot be undone.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -85,8 +85,8 @@ function TopNav() {
                 || (usesApple && !data.appleRevocation);
               if (needsAppleSteps) {
                 Alert.alert(
-                  'Eventi account deleted',
-                  'To finish removing Apple access, open iPhone Settings, tap your name, then Sign in with Apple. Select Eventi and tap Delete.',
+                  'EventAlly account deleted',
+                  'To finish removing Apple access, open iPhone Settings, tap your name, then Sign in with Apple. Select the app or developer entry and tap Delete.',
                   [
                     { text: 'Done', style: 'cancel' },
                     { text: 'Apple instructions', onPress: () => {
@@ -97,7 +97,7 @@ function TopNav() {
                   ],
                 );
               } else {
-                Alert.alert('Account deleted', 'Your Eventi account and data have been removed.');
+                Alert.alert('Account deleted', 'Your EventAlly account and data have been removed.');
               }
             } catch {
               Alert.alert('Could not confirm deletion', 'Please try again or contact support from the Privacy Policy.');
@@ -116,7 +116,7 @@ function TopNav() {
         <Pressable accessibilityRole="button" accessibilityLabel="Menu" style={styles.iconBtn} onPress={handleMenuPress}>
           <MaterialIcons name="menu" size={26} color="#111" />
         </Pressable>
-        <Text style={styles.appName}>Eventi</Text>
+        <Text style={styles.appName}>EventAlly</Text>
         <Pressable accessibilityRole="button" accessibilityLabel="Account" style={styles.iconBtn} onPress={handleAccountPress}>
           <MaterialIcons name={session ? 'person' : 'person-outline'} size={26} color="#111" />
         </Pressable>

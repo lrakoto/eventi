@@ -1,18 +1,18 @@
 {
-  "lastUpdated": "November 13, 2026",
+  "lastUpdated": "November 15, 2026",
   "contactEmail": "lova@threeohfivestudios.com",
   "sections": [
     {
       "heading": "Overview",
-      "body": "Eventi shows events happening near you on a map. This policy explains what information the app uses, why, and the choices you have. Eventi does not sell your data, show ads, or track you across other apps or websites."
+      "body": "EventAlly shows events happening near you on a map. This policy explains what information the app uses, why, and the choices you have. EventAlly does not sell your data, show ads, or track you across other apps or websites."
     },
     {
       "heading": "Location",
-      "body": "You can choose a city without sharing your device location. If you select Use My Location and grant permission, Eventi sends your coordinates to its Supabase backend to show nearby events. To refresh listings in sparse areas, Eventi may send an approximate area to Ticketmaster and store that area and the request time to limit repeat requests. These records do not include your account ID and are cleared after their rate limit window expires and another refresh is requested. You can change location permissions in iOS Settings."
+      "body": "You can choose a city without sharing your device location. If you select Use My Location and grant permission, EventAlly sends your coordinates to its Supabase backend to show nearby events. To refresh listings in sparse areas, EventAlly may send an approximate area to Ticketmaster and store that area and the request time to limit repeat requests. These records do not include your account ID and are cleared after their rate limit window expires and another refresh is requested. You can change location permissions in iOS Settings."
     },
     {
       "heading": "Account information",
-      "body": "You can browse without an account. If you sign in with Apple or email, we store your email address (or Apple's private relay address), a user ID and your bookmarks. Supabase Auth handles passwords. When available, we store a token issued by Apple to revoke Eventi's access when you delete your account. Account information and bookmarks are kept until you delete them or close your account."
+      "body": "You can browse without an account. If you sign in with Apple or email, we store your email address (or Apple's private relay address), a user ID and your bookmarks. Supabase Auth handles passwords. When available, we store a token issued by Apple to revoke EventAlly's access when you delete your account. Account information and bookmarks are kept until you delete them or close your account."
     },
     {
       "heading": "Past community posts",
@@ -24,15 +24,15 @@
     },
     {
       "heading": "Service providers",
-      "body": "Eventi is hosted on Supabase (database, authentication, and server functions, located in the United States). Sign in with Apple is provided by Apple. These providers process data only to run the app."
+      "body": "EventAlly is hosted on Supabase (database, authentication, and server functions, located in the United States). Sign in with Apple is provided by Apple. These providers process data only to run the app."
     },
     {
       "heading": "Deleting your data",
-      "body": "Open the account menu and tap Delete account to remove your Eventi account and associated data. If you signed in with Apple, Eventi attempts to revoke Apple access as part of deletion. If it cannot, you can remove Eventi under Settings → your name → Sign in with Apple."
+      "body": "Open the account menu and tap Delete account to remove your EventAlly account and associated data. If you signed in with Apple, EventAlly attempts to revoke Apple access as part of deletion. If it cannot, you can remove access under Settings → your name → Sign in with Apple."
     },
     {
       "heading": "Children",
-      "body": "Eventi is not directed to children under 13, and we do not knowingly collect their information."
+      "body": "EventAlly is not directed to children under 13, and we do not knowingly collect their information."
     },
     {
       "heading": "Changes",

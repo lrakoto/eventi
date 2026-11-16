@@ -1,4 +1,4 @@
-# Eventi
+# EventAlly
 
 A map-first events app for iPhone. Browse Ticketmaster listings in Los Angeles, New York, or Chicago, or use your location to discover nearby events on Apple Maps.
 

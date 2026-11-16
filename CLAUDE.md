@@ -1,4 +1,4 @@
-# Eventi
+# EventAlly
 
 An iPhone events app targeting the App Store. The first release shows Ticketmaster listings around the selected city or the user's location.
 

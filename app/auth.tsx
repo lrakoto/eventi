@@ -89,7 +89,7 @@ export default function AuthScreen() {
       if (data.session) {
         router.back();
       } else if (mode === 'signup') {
-        Alert.alert('Check your email', 'Open the confirmation link, then return to Eventi and sign in.');
+        Alert.alert('Check your email', 'Open the confirmation link, then return to EventAlly and sign in.');
         setMode('login');
       }
     } catch (e: any) {
@@ -108,7 +108,7 @@ export default function AuthScreen() {
         <MaterialIcons name="close" size={24} color="#111" />
       </Pressable>
 
-      <Text style={styles.title}>Welcome to Eventi</Text>
+      <Text style={styles.title}>Welcome to EventAlly</Text>
       <Text style={styles.subtitle}>Sign in to bookmark events.</Text>
 
       {/* Apple Sign-In — Apple's official button (required for App Store HIG compliance) */}
