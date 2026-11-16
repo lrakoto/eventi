@@ -1,4 +1,4 @@
-name: Publish Eventi privacy policy
+name: Publish Eventi privacy and support pages
 
 on:
   push:
@@ -6,6 +6,7 @@ on:
     paths:
       - .github/workflows/eventi-privacy.yml
       - constants/privacy-policy.json
+      - docs/support.html
       - scripts/build-privacy-page.mjs
   workflow_dispatch:
 
@@ -24,12 +25,13 @@ jobs:
       - uses: actions/checkout@v6
         with:
           persist-credentials: false
-      - name: Generate privacy policy
+      - name: Stage privacy and support pages
         run: |
           node scripts/build-privacy-page.mjs
-          mkdir -p "$RUNNER_TEMP/eventi-privacy/privacy"
+          mkdir -p "$RUNNER_TEMP/eventi-privacy/privacy" "$RUNNER_TEMP/eventi-privacy/support"
           cp docs/privacy.html "$RUNNER_TEMP/eventi-privacy/index.html"
           cp docs/privacy.html "$RUNNER_TEMP/eventi-privacy/privacy/index.html"
+          cp docs/support.html "$RUNNER_TEMP/eventi-privacy/support/index.html"
       - uses: actions/upload-pages-artifact@v4
         with:
           path: ${{ runner.temp }}/eventi-privacy

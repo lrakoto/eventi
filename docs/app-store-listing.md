@@ -2,11 +2,13 @@
 
 ## App information
 - **Name** (30): Eventi — Events Near You
-- **Subtitle** (30): Concerts, shows & more on a map
+- **Subtitle** (30): Concerts & shows on a map
 - **Bundle ID:** com.lovarakoto.eventi
 - **Primary category:** Entertainment · **Secondary:** Lifestyle
 - **Privacy Policy URL:** https://lrakoto.github.io/eventi/privacy/
-- **Support URL:** https://threeohfivestudios.com/
+- **Support URL:** https://lrakoto.github.io/eventi/support/
+
+Use `eventi-ios` for the SKU if a new app record is needed. Start with a free U.S. listing, where the three preset cities are supported. Select manual release so the approved version stays in App Store Connect until launch.
 
 ## Description (4000)
 Find nearby concerts, sports, theater, and comedy on one map.
@@ -41,13 +43,17 @@ Tracking: **No** (no ads, no analytics SDKs, no data broker sharing)
 Device coordinates are used to answer nearby queries. Sparse-area refreshes retain only the approximate area and request time in Eventi's application tables and send only the approximate area to Ticketmaster. Confirm production request logging and retention when finalizing the location disclosure. [Apple privacy details](https://developer.apple.com/app-store/app-privacy-details/)
 
 ## Review notes (for the reviewer)
-- Browse as a guest. Use the area selector to choose a supported city or tap **Use My Location** to request location access and show nearby events.
-- To test bookmarking, sign in, open an event, and tap the bookmark icon.
-- Account deletion: person icon (top right) → Delete account.
-- Add a dedicated, confirmed demo email account in App Store Connect review information for the bookmark flow. Use a separate account when testing deletion.
+
+Eventi opens to Los Angeles. You can browse as a guest, even if you deny location permission. Tap the area selector at the top left of the map to switch to New York or Chicago, or choose Use My Location. The map and event list share the same filters. Get Tickets opens the source listing for tickets to an in-person event, and Directions opens Apple Maps.
+
+To test bookmarks, use the demo credentials in App Review Information. Open any event and tap the bookmark icon. Account deletion is available from the account icon at the top right. The demo account can be kept for review by using a separate account to test deletion.
+
+### App Review Information setup
+
+Create and verify a dedicated email demo account before entering its credentials in App Store Connect. Keep the credentials out of the repository. Provide an App Review contact who can respond during review.
 
 ## Screenshots
-Capture the map with pins, an event detail sheet, and the filtered list from the release build. Use the current iPhone screenshot sizes in [Apple's screenshot specifications](https://developer.apple.com/help/app-store-connect/reference/app-information/screenshot-specifications).
+Capture the map with pins, an event detail sheet, and the filtered list from the app running on an iPhone. Use unscaled portrait screenshots. Apple's medium Dynamic Island sizes are 1179 × 2556 and 1206 × 2622. Check Media Manager for any additional required size. [Apple's screenshot specifications](https://developer.apple.com/help/app-store-connect/reference/app-information/screenshot-specifications)
 
 ## iPhone smoke test
 
